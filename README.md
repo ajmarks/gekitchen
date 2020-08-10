@@ -66,12 +66,13 @@ async def detect_appliance_type(data: Tuple[GeAppliance, Dict[ErdCodeType, Any]]
 
 
 async def do_periodic_update(appliance: GeAppliance):
-    """Request a full state update every minute forever"""
+    """Request a full state update every five minutes forever"""
     _LOGGER.debug(f'Registering update callback for {appliance:s}')
     while True:
-        await asyncio.sleep(60 * 1)
+        await asyncio.sleep(5 * 60)
         _LOGGER.debug(f'Requesting update for {appliance:s}')
-        await appliance.async_request_update()
+        if appliance.available:
+            await appliance.async_request_update()
 
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)-8s %(message)s')
 xmpp_credentials = do_full_login_flow(USERNAME, PASSWORD)
@@ -82,7 +83,7 @@ client.add_event_handler('appliance_state_change', detect_appliance_type)
 client.add_event_handler('add_appliance', do_periodic_update)
 client.connect()
 asyncio.ensure_future(client.process_in_running_loop(), loop=evt_loop)
-evt_loop.run_until_complete(asyncio.sleep(300))
+evt_loop.run_until_complete(asyncio.sleep(20 * 60))
 ```
 
 ## Events
