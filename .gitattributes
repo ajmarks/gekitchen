@@ -1,0 +1,7 @@
+# Source files
+# ============
+*.py     text diff=python eol=lf
+
+# Config and data files
+*.json   text eol=lf
+*.yaml   text eol=lf
