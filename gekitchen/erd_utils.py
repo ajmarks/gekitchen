@@ -1,6 +1,7 @@
 """Conversion functions for ERD values"""
 
 from datetime import timedelta
+import logging
 from typing import Any, Optional, Set, Tuple, Union
 from .erd_constants import (
     ErdApplianceType,
@@ -14,6 +15,8 @@ from .erd_constants import (
 from .erd_types import AvailableCookMode, OvenCookSetting, OvenConfiguration
 
 ErdCodeType = Union[ErdCode, str]
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def translate_erd_code(erd_code: ErdCodeType) -> ErdCodeType:
@@ -96,11 +99,20 @@ def _encode_measurement_unit(value: ErdMeasurementUnits) -> str:
     return f'{value.value:02d}'
 
 
-def _decode_elapsed_time(value: str) -> Optional[timedelta]:
+def _decode_timespan(value: str) -> Optional[timedelta]:
     minutes = decode_erd_int(value)
     if minutes == 65535:
+        _LOGGER.debug('Got timespan value of 65535. Treating as None.')
         return None
     return timedelta(minutes=minutes)
+
+
+def _encode_timespan(value: Optional[timedelta]) -> str:
+    if value is None:
+        minutes = 65535
+    else:
+        minutes = value.seconds // 60
+    return _encode_erd_int(minutes)
 
 
 def _decode_cook_modes(value: str) -> Set[AvailableCookMode]:
@@ -178,6 +190,19 @@ def _decode_oven_configuration(value: str) -> OvenConfiguration:
 
 # Decoders for non-numeric fields
 ERD_DECODERS = {
+    # Integers
+    ErdCode.CLOCK_FORMAT: decode_erd_int,
+    ErdCode.END_TONE: decode_erd_int,
+    ErdCode.SOUND_LEVEL: decode_erd_int,
+    ErdCode.LOWER_OVEN_DISPLAY_TEMPERATURE: decode_erd_int,
+    ErdCode.LOWER_OVEN_PROBE_DISPLAY_TEMP: decode_erd_int,
+    ErdCode.LOWER_OVEN_RAW_TEMPERATURE: decode_erd_int,
+    ErdCode.LOWER_OVEN_USER_TEMP_OFFSET: decode_erd_int,
+    ErdCode.UPPER_OVEN_DISPLAY_TEMPERATURE: decode_erd_int,
+    ErdCode.UPPER_OVEN_PROBE_DISPLAY_TEMP: decode_erd_int,
+    ErdCode.UPPER_OVEN_RAW_TEMPERATURE: decode_erd_int,
+    ErdCode.UPPER_OVEN_USER_TEMP_OFFSET: decode_erd_int,
+
     # Strings
     ErdCode.MODEL_NUMBER: _decode_erd_string,
     ErdCode.SERIAL_NUMBER: _decode_erd_string,
@@ -185,11 +210,21 @@ ERD_DECODERS = {
     # Booleans
     ErdCode.CONVECTION_CONVERSION: _decode_erd_bool,
     ErdCode.HOUR_12_SHUTOFF_ENABLED: _decode_erd_bool,
+    ErdCode.SABBATH_MODE: _decode_erd_bool,
     ErdCode.LOWER_OVEN_PROBE_PRESENT: _decode_erd_bool,
     ErdCode.LOWER_OVEN_REMOTE_ENABLED: _decode_erd_bool,
-    ErdCode.SABBATH_MODE: _decode_erd_bool,
     ErdCode.UPPER_OVEN_PROBE_PRESENT: _decode_erd_bool,
     ErdCode.UPPER_OVEN_REMOTE_ENABLED: _decode_erd_bool,
+
+    # Time spans
+    ErdCode.LOWER_OVEN_COOK_TIME_REMAINING: _decode_timespan,
+    ErdCode.LOWER_OVEN_DELAY_TIME_REMAINING: _decode_timespan,
+    ErdCode.LOWER_OVEN_ELAPSED_COOK_TIME: _decode_timespan,
+    ErdCode.LOWER_OVEN_KITCHEN_TIMER: _decode_timespan,
+    ErdCode.UPPER_OVEN_COOK_TIME_REMAINING: _decode_timespan,
+    ErdCode.UPPER_OVEN_DELAY_TIME_REMAINING: _decode_timespan,
+    ErdCode.UPPER_OVEN_ELAPSED_COOK_TIME: _decode_timespan,
+    ErdCode.UPPER_OVEN_KITCHEN_TIMER: _decode_timespan,
 
     # Special handling
     ErdCode.APPLIANCE_TYPE: _decode_appliance_type,
@@ -197,17 +232,23 @@ ERD_DECODERS = {
     ErdCode.OVEN_MODE_MIN_MAX_TEMP: _decode_oven_ranges,
     ErdCode.TEMPERATURE_UNIT: _decode_measurement_unit,
     ErdCode.LOWER_OVEN_CURRENT_STATE: _decode_oven_state,
-    ErdCode.LOWER_OVEN_ELAPSED_COOK_TIME: _decode_elapsed_time,
     ErdCode.LOWER_OVEN_AVAILABLE_COOK_MODES: _decode_cook_modes,
     ErdCode.LOWER_OVEN_COOK_MODE: _decode_oven_cook_mode,
     ErdCode.UPPER_OVEN_CURRENT_STATE: _decode_oven_state,
-    ErdCode.UPPER_OVEN_ELAPSED_COOK_TIME: _decode_elapsed_time,
     ErdCode.UPPER_OVEN_AVAILABLE_COOK_MODES: _decode_cook_modes,
     ErdCode.UPPER_OVEN_COOK_MODE: _decode_oven_cook_mode,
 }
 
 # Encoders for all fields
 ERD_ENCODERS = {
+    # Time spans
+    ErdCode.LOWER_OVEN_COOK_TIME_REMAINING: _encode_timespan,
+    ErdCode.LOWER_OVEN_DELAY_TIME_REMAINING: _encode_timespan,
+    ErdCode.LOWER_OVEN_KITCHEN_TIMER: _encode_timespan,
+    ErdCode.UPPER_OVEN_COOK_TIME_REMAINING: _encode_timespan,
+    ErdCode.UPPER_OVEN_DELAY_TIME_REMAINING: _encode_timespan,
+    ErdCode.UPPER_OVEN_KITCHEN_TIMER: _encode_timespan,
+
     # Booleans
     ErdCode.CONVECTION_CONVERSION: _encode_erd_bool,
     ErdCode.SABBATH_MODE: _encode_erd_bool,

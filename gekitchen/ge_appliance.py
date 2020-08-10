@@ -201,10 +201,8 @@ class GeAppliance:
         """
         erd_code = translate_erd_code(erd_code)
         value = self.decode_erd_value(erd_code, erd_value)
-        _LOGGER.debug(f'Setting {erd_code} to {value}')
 
         old_value = self._property_cache.get(erd_code)
-        self._property_cache[erd_code] = value
 
         try:
             state_changed = ((old_value is None) != (value is None)) or (old_value != value)
@@ -212,30 +210,50 @@ class GeAppliance:
             _LOGGER.info('Unable to compare new and prior states.')
             state_changed = False
 
+        if state_changed:
+            _LOGGER.debug(f'Setting {erd_code} to {value}')
+        self._property_cache[erd_code] = value
+
         if state_changed and trigger_callbacks:
             await self._async_trigger_update_callbacks({erd_code: value})
         return state_changed
 
-    async def async_update_erd_values(self, erd_values: Dict[ErdCodeType, str], trigger_callbacks: bool = True) -> bool:
+    async def async_update_erd_values(
+            self, erd_values: Dict[ErdCodeType, str], trigger_callbacks: bool = True) -> Dict[ErdCodeType, Any]:
         """
         Set one or more ERD codes value at once
 
         :param erd_values: Dictionary of erd codes and their new values as raw hex strings
         :param trigger_callbacks: bool, default True, If True, trigger update callbacks if the state changed
-        :return: bool, True if the state changed, False if no value changed
+        :return: dictionary of new states
         """
         state_changes = {
-            k: v
+            translate_erd_code(k): self.decode_erd_value(k, v)
             for k, v in erd_values.items()
             if await self.async_update_erd_value(k, v, trigger_callbacks=False)
         }
+
         if trigger_callbacks:
             await self._async_trigger_update_callbacks(state_changes)
-        return bool(state_changes)
+        return state_changes
 
-    async def async_post_erd_value(self, erd_code: ErdCodeType, value: Any):
-        """Send a new erd value to the appliance"""
+    async def async_set_erd_value(self, erd_code: ErdCodeType, value: Any):
+        """
+        Send a new erd value to the appliance
+        :param erd_code: The ERD code to update
+        :param value: The new value to set
+        """
         erd_value = self.encode_erd_value(erd_code, value)
-        raw_erd_code = erd_code.value
+        if isinstance(erd_code, ErdCode):
+            raw_erd_code = erd_code.value
+        else:
+            raw_erd_code = erd_code
+
         uri = f'/UUID/erd/{raw_erd_code}'
         await self.async_send_request('POST', uri, raw_erd_code, erd_value)
+
+    def __str__(self):
+        appliance_type = self.appliance_type
+        if appliance_type is None:
+            appliance_type = 'Unknown Type'
+        return f'{self.__class__.__name__}({self.jid.node}) ({appliance_type})'

@@ -22,6 +22,9 @@ def _first_or_none(lst: list) -> Any:
         return None
 
 
+set_timer = False
+
+
 class GeClient(slixmpp.ClientXMPP):
     def __init__(self, xmpp_credentials: Dict, event_loop: Optional[asyncio.AbstractEventLoop] = None, **kwargs):
         # If we have our own even loop, use that
@@ -51,24 +54,29 @@ class GeClient(slixmpp.ClientXMPP):
             disable_starttls=disable_starttls
         )
 
+    @property
+    def appliances(self) -> Dict[str, GeAppliance]:
+        return self._appliances
+
     async def on_presence_available(self, evt):
         """Perform actions when notified of an available JID."""
         jid = slixmpp.JID(evt['from']).bare
         if jid == self.boundjid.bare:
             return
         try:
-            await self._appliances[jid].async_set_available()
+            await self.appliances[jid].async_set_available()
             _LOGGER.debug(f'Appliance {jid} marked available')
         except KeyError:
             await self.add_appliance(jid)
 
     async def add_appliance(self, jid: str):
         """Add an appliance to the registry and request an update."""
-        if jid in self._appliances:
+        if jid in self.appliances:
             raise RuntimeError('Trying to add duplicate appliance')
         new_appliance = GeAppliance(jid, self)
         await new_appliance.async_request_update()
-        self._appliances[jid] = new_appliance
+        self.appliances[jid] = new_appliance
+        self.event('add_appliance', new_appliance)
         _LOGGER.info(f'Adding appliance {jid}')
 
     async def on_presence_unavailable(self, evt):
@@ -77,13 +85,14 @@ class GeClient(slixmpp.ClientXMPP):
         if jid == self.boundjid.bare:
             return
         try:
-            await self._appliances[jid].async_set_unavailable()
+            await self.appliances[jid].async_set_unavailable()
             _LOGGER.debug(f'Appliance {jid} marked unavailable')
         except KeyError:
             pass
 
     async def on_message(self, event):
         """Handle incoming messages."""
+        global set_timer
         msg = str(event)
         msg_from = slixmpp.JID(event['from']).bare
         try:
@@ -92,7 +101,10 @@ class GeClient(slixmpp.ClientXMPP):
             _LOGGER.info(f"From: {msg_from}: Not a GE message")
             return
         try:
-            await self._appliances[msg_from].async_update_erd_values(message_data)
+            appliance = self.appliances[msg_from]
+            state_changes = await appliance.async_update_erd_values(message_data)
+            if state_changes:
+                self.event('appliance_state_change', [appliance, state_changes])
         except KeyError:
             _LOGGER.warning('Received json message from unregistered appliance')
 
