@@ -59,12 +59,12 @@ async def detect_appliance_type(data: Tuple[GeAppliance, Dict[ErdCodeType, Any]]
         return
     if appliance.appliance_type == ErdApplianceType.OVEN:
         _LOGGER.info('Turning on the oven!')
-        await appliance.async_set_erd_value(
+        appliance.set_erd_value(
             ErdCode.UPPER_OVEN_COOK_MODE,
             OvenCookSetting(ErdOvenCookMode.BAKE_NOOPTION, 350)
         )
         _LOGGER.info('Set the timer!')
-        await appliance.async_set_erd_value(ErdCode.UPPER_OVEN_KITCHEN_TIMER, timedelta(minutes=45))
+        appliance.set_erd_value(ErdCode.UPPER_OVEN_KITCHEN_TIMER, timedelta(minutes=45))
 
 
 async def do_periodic_update(appliance: GeAppliance):
@@ -74,7 +74,7 @@ async def do_periodic_update(appliance: GeAppliance):
         await asyncio.sleep(5 * 60)
         _LOGGER.debug(f'Requesting update for {appliance:s}')
         if appliance.available:
-            await appliance.async_request_update()
+            await appliance.request_update()
 
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)-8s %(message)s')
 xmpp_credentials = do_full_login_flow(USERNAME, PASSWORD)
@@ -117,9 +117,9 @@ Similarly, we can set the timer to 45 minutes by `POST`ing to the same "endpoint
     </request>
 </body>
 ``` 
-In `gekitchen`, that would handled by the `GeAppliance.async_set_erd_value` method:
+In `gekitchen`, that would handled by the `GeAppliance.set_erd_value` method:
 ```python
-await appliance.async_set_erd_value(ErdCode.LOWER_OVEN_KITCHEN_TIMER, timedelta(minutes=45))
+appliance.set_erd_value(ErdCode.LOWER_OVEN_KITCHEN_TIMER, timedelta(minutes=45))
 ```
 
 We can also get a specific property, or, more commonly, request a full cache refresh by `GET`ing the `/UUID/cache` 
@@ -182,14 +182,48 @@ Main XMPP client, and a subclass of `slixmpp.ClientXMPP`.
  `slixmpp.ClientXMPP`, we've added some more event types detailed below.
 #### Properties
  * `appliances` A `Dict[str, GeAppliance]` of all known appliances keyed on the appliances' JIDs.
-
-## Events
-
+#### Events
 In addition to the standard `slixmpp` events, the `GeClient` object has support for the following:
-
 * `'add_appliance'` - Triggered after a new appliance is added. The `GeAppliance` object is passed to the callback
 * `'appliance_state_change'` - Triggered when an appliance message with a new state, different from the existing, cached
 state is received.  A tuple `(appliance, state_changes)` is passed to the callback, where `appliance` is the 
 `GeAppliance` object with the updated state and `state_changes` is a dictionary `{erd_key: new_value}` of the changed
 state.
 
+### GeAppliance(jid, xmpp_client)
+Representation of a single appliance
+ * `jid: Union[str, slixmpp.JID]` The appliance's Jabber ID 
+ * `xmpp_client: GeClient` The client used to communicate with the device
+#### Useful Methods
+ * `decode_erd_value(erd_code: ErdCodeType, erd_value: str)` Decode a raw ERD property value.
+ * `encode_erd_value(erd_code: ErdCodeType, erd_value: str)` Decode a raw ERD property value.
+ * `get_erd_value(erd_code: ErdCodeType)` Get the cached value of ERD code `erd_code`.  If `erd_code` is a string, this
+ function will attempt to convert it to an `ErdCode` object first.
+ * `request_update()` Request the appliance send an update of all properties
+ * `send_raw_message(mto, mbody, mtype='chat', msg_id=None)` Send a message to `mto` with `mbody` in the body.  No 
+ processing or sanity checking will be applied.
+ * `send_request(method: str, uri: str, key=None, value=None, message_id=None)` Send a pseudo-HTTP request to the
+ appliance
+ * `set_available()` Mark the appliance as available
+ * `set_erd_value(erd_code: ErdType, value)` Tell the device to set the property represented by `erd_code` to `value` 
+ * `set_unavailable()` Mark the appliance as unavailable
+ * `update_erd_value(erd_code: ErdType, value)` Update the local property cache value for `erd_code` to `value`, where
+ value is the not yet decoded hex string sent from the API. Returns `True` if that is a change in state, `False` otherwise.
+ * `update_erd_values(self, erd_values: Dict[ErdCodeType, str])` Update multiple values in the local property cache.
+ Returns a dictionary of changed states or an empty `dict` if nothing actually changed.
+#### Properties
+ * `appliance_type: Optional[ErdApplianceType]` The type of appliance, `None` if unknown
+ * `available: bool` `True` if the appliance is available, otherwise `False`
+ * `jid: slixmpp.JID` The appliance's Jabber ID
+ 
+
+### Useful `Enum` types
+* `ErdCode` `Enum` of known ERD property codes
+* `ErdApplianceType` Values for `ErdCode.APPLIANCE_TYPE`
+* `ErdMeasurementUnits` Values for `ErdCode.TEMPERATURE_UNIT`
+* `ErdOvenCookMode` Possible oven cook modes, used for `OvenCookSetting` among other things
+* `ErdOvenState` Values for `ErdCode.LOWER_OVEN_CURRENT_STATE` and `ErdCode.UPPER_OVEN_CURRENT_STATE` 
+
+### Other types
+* `OvenCookSetting` A `namedtuple` of an `ErdOvenCookMode` and an `int` temperature
+* `OvenConfiguration` A `namedtuple` of boolean properties representing an oven's physical configuration

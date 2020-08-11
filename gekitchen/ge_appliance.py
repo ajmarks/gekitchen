@@ -68,7 +68,7 @@ class GeAppliance:
         )
         self.xmpp_client.send_raw(raw_message)
 
-    async def async_send_request(
+    def send_request(
             self, method: str, uri: str, key: Optional[str] = None,
             value: Optional[str] = None, message_id: Optional[str] = None):
         """
@@ -90,14 +90,14 @@ class GeAppliance:
         message_body = _format_request(message_id, uri, method, key, value)
         self.send_raw_message(self.jid, message_body)
 
-    async def async_request_update(self):
+    def request_update(self):
         """Request the appliance send a full state update"""
-        await self.async_send_request('GET', '/UUID/cache')
+        self.send_request('GET', '/UUID/cache')
 
-    async def async_set_available(self):
+    def set_available(self):
         self._available = True
 
-    async def async_set_unavailable(self):
+    def set_unavailable(self):
         self._available = False
 
     @property
@@ -161,7 +161,22 @@ class GeAppliance:
         erd_code = translate_erd_code(erd_code)
         return self._property_cache[erd_code]
 
-    async def async_update_erd_value(
+    def set_erd_value(self, erd_code: ErdCodeType, value: Any):
+        """
+        Send a new erd value to the appliance
+        :param erd_code: The ERD code to update
+        :param value: The new value to set
+        """
+        erd_value = self.encode_erd_value(erd_code, value)
+        if isinstance(erd_code, ErdCode):
+            raw_erd_code = erd_code.value
+        else:
+            raw_erd_code = erd_code
+
+        uri = f'/UUID/erd/{raw_erd_code}'
+        self.send_request('POST', uri, raw_erd_code, erd_value)
+
+    def update_erd_value(
             self, erd_code: ErdCodeType, erd_value: str) -> bool:
         """
         Setter for ERD code values.
@@ -187,8 +202,7 @@ class GeAppliance:
 
         return state_changed
 
-    async def async_update_erd_values(
-            self, erd_values: Dict[ErdCodeType, str]) -> Dict[ErdCodeType, Any]:
+    def update_erd_values(self, erd_values: Dict[ErdCodeType, str]) -> Dict[ErdCodeType, Any]:
         """
         Set one or more ERD codes value at once
 
@@ -198,25 +212,10 @@ class GeAppliance:
         state_changes = {
             translate_erd_code(k): self.decode_erd_value(k, v)
             for k, v in erd_values.items()
-            if await self.async_update_erd_value(k, v)
+            if self.update_erd_value(k, v)
         }
 
         return state_changes
-
-    async def async_set_erd_value(self, erd_code: ErdCodeType, value: Any):
-        """
-        Send a new erd value to the appliance
-        :param erd_code: The ERD code to update
-        :param value: The new value to set
-        """
-        erd_value = self.encode_erd_value(erd_code, value)
-        if isinstance(erd_code, ErdCode):
-            raw_erd_code = erd_code.value
-        else:
-            raw_erd_code = erd_code
-
-        uri = f'/UUID/erd/{raw_erd_code}'
-        await self.async_send_request('POST', uri, raw_erd_code, erd_value)
 
     def __str__(self):
         appliance_type = self.appliance_type

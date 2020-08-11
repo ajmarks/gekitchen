@@ -64,7 +64,7 @@ class GeClient(slixmpp.ClientXMPP):
         if jid == self.boundjid.bare:
             return
         try:
-            await self.appliances[jid].async_set_available()
+            self.appliances[jid].set_available()
             _LOGGER.debug(f'Appliance {jid} marked available')
         except KeyError:
             await self.add_appliance(jid)
@@ -74,7 +74,7 @@ class GeClient(slixmpp.ClientXMPP):
         if jid in self.appliances:
             raise RuntimeError('Trying to add duplicate appliance')
         new_appliance = GeAppliance(jid, self)
-        await new_appliance.async_request_update()
+        new_appliance.request_update()
         self.appliances[jid] = new_appliance
         self.event('add_appliance', new_appliance)
         _LOGGER.info(f'Adding appliance {jid}')
@@ -85,7 +85,7 @@ class GeClient(slixmpp.ClientXMPP):
         if jid == self.boundjid.bare:
             return
         try:
-            await self.appliances[jid].async_set_unavailable()
+            self.appliances[jid].set_unavailable()
             _LOGGER.debug(f'Appliance {jid} marked unavailable')
         except KeyError:
             pass
@@ -102,7 +102,7 @@ class GeClient(slixmpp.ClientXMPP):
             return
         try:
             appliance = self.appliances[msg_from]
-            state_changes = await appliance.async_update_erd_values(message_data)
+            state_changes = appliance.update_erd_values(message_data)
             if state_changes:
                 self.event('appliance_state_change', [appliance, state_changes])
         except KeyError:
