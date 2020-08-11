@@ -53,9 +53,14 @@ def _encode_erd_int(value: int) -> str:
 
 
 def _decode_erd_string(value: str) -> str:
-    """Decode an string value sent as a hex encoded string."""
+    """
+    Decode an string value sent as a hex encoded string.
+
+    TODO: I think the first byte is a checksum.  I need to confirm this so we can have an encoder as well.
+    """
     raw_bytes = bytes.fromhex(value)
     raw_bytes = raw_bytes.rstrip(b'\x00')
+
     return raw_bytes[1:].decode('ascii')
 
 

@@ -1,8 +1,7 @@
 """Classes to implement GE appliances"""
 
-import asyncio
 import logging
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 from slixmpp import JID, ClientXMPP
 from .erd_utils import (
     ERD_DECODERS,
@@ -52,26 +51,11 @@ class GeAppliance:
         self._jid = jid
         self._message_id = 0
         self._property_cache = {}  # type: Dict[ErdCodeType, Any]
-        self._update_coroutines = []  # type: List[Callable[[Dict[ErdCodeType, Any]], Awaitable[Any]]]
-        self._update_functions = []  # type: List[Callable[[Dict[ErdCodeType, Any]], Any]]
         self.xmpp_client = xmpp_client
 
     @property
     def jid(self) -> JID:
         return self._jid
-
-    def register_update_callback(self, callback: Callable[[Dict[ErdCodeType, Any]], Any]):
-        """
-        Register a function to call after an update.
-        A dictionary of the ERD codes and new values will be passed as an argument to the function
-        :param callback: A function or coroutine function to call or await when a property is updated
-        """
-        if asyncio.iscoroutinefunction(callback):
-            _LOGGER.debug(f'Registering async update callback: {callback.__name__}')
-            self._update_coroutines.append(callback)
-        else:
-            _LOGGER.debug(f'Registering regular update callback: {callback.__name__}')
-            self._update_functions.append(callback)
 
     def send_raw_message(self, mto: JID, mbody: str, mtype: str = 'chat', msg_id: Optional[str] = None):
         """TODO: Use actual xml for this instead of hacking it.  Then again, this is what GE does in the app."""
@@ -177,26 +161,13 @@ class GeAppliance:
         erd_code = translate_erd_code(erd_code)
         return self._property_cache[erd_code]
 
-    async def _async_trigger_update_callbacks(self, state_changes: Dict[ErdCodeType, Any]):
-        """
-        Call all of the registered on update callbacks
-
-        :param state_changes: Dictionary of updated ERD codes and values to pass to the callbacks
-        """
-        if state_changes:
-            for f in self._update_functions:
-                f(state_changes)
-            for f in self._update_coroutines:
-                await f(state_changes)
-
     async def async_update_erd_value(
-            self, erd_code: ErdCodeType, erd_value: str, trigger_callbacks: bool = True) -> bool:
+            self, erd_code: ErdCodeType, erd_value: str) -> bool:
         """
         Setter for ERD code values.
 
         :param erd_code: ERD code to update
         :param erd_value: The new value to set, as returned by the appliance (usually a hex string)
-        :param trigger_callbacks: bool, default True, If True, trigger update callbacks if the state changed
         :return: Boolean, True if the state changed, False if no value changed
         """
         erd_code = translate_erd_code(erd_code)
@@ -214,27 +185,22 @@ class GeAppliance:
             _LOGGER.debug(f'Setting {erd_code} to {value}')
         self._property_cache[erd_code] = value
 
-        if state_changed and trigger_callbacks:
-            await self._async_trigger_update_callbacks({erd_code: value})
         return state_changed
 
     async def async_update_erd_values(
-            self, erd_values: Dict[ErdCodeType, str], trigger_callbacks: bool = True) -> Dict[ErdCodeType, Any]:
+            self, erd_values: Dict[ErdCodeType, str]) -> Dict[ErdCodeType, Any]:
         """
         Set one or more ERD codes value at once
 
         :param erd_values: Dictionary of erd codes and their new values as raw hex strings
-        :param trigger_callbacks: bool, default True, If True, trigger update callbacks if the state changed
         :return: dictionary of new states
         """
         state_changes = {
             translate_erd_code(k): self.decode_erd_value(k, v)
             for k, v in erd_values.items()
-            if await self.async_update_erd_value(k, v, trigger_callbacks=False)
+            if await self.async_update_erd_value(k, v)
         }
 
-        if trigger_callbacks:
-            await self._async_trigger_update_callbacks(state_changes)
         return state_changes
 
     async def async_set_erd_value(self, erd_code: ErdCodeType, value: Any):
