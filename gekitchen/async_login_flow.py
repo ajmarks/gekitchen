@@ -50,7 +50,6 @@ async def async_get_oauth2_token(session: aiohttp.ClientSession, username: str, 
     }
     post_data['username'] = clean_username
     post_data['password'] = password
-    print(post_data)
 
     async with session.post(f'{LOGIN_URL}/oauth2/g_authenticate', data=post_data, allow_redirects=False) as resp:
         code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
