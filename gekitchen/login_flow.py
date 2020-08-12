@@ -34,7 +34,10 @@ def get_oauth2_token(session: requests.Session, username: str, password: str):
 
     r1 = session.get(f'{LOGIN_URL}/oauth2/auth', params=params)
 
-    email_regex = r'^\s*(\w+(?:(?:-\w+)|(?:\.\w+)|(?:\+\w+))*\@[A-Za-z0-9]+(?:(?:\.|-)[A-Za-z0-9]+)*\.[A-Za-z0-9][A-Za-z0-9]+)\s*$'
+    email_regex = (
+        r'^\s*(\w+(?:(?:-\w+)|(?:\.\w+)|(?:\+\w+))*\@'
+        r'[A-Za-z0-9]+(?:(?:\.|-)[A-Za-z0-9]+)*\.[A-Za-z0-9][A-Za-z0-9]+)\s*$'
+    )
     clean_username = re.sub(email_regex, r'\1', username)
 
     etr = etree.HTML(r1.text)
