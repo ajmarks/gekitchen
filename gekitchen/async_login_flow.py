@@ -33,8 +33,8 @@ async def async_get_oauth2_token(session: aiohttp.ClientSession, username: str, 
         'redirect_uri': OAUTH2_REDIRECT_URI,
     }
 
-    async with session.get(f'{LOGIN_URL}/oauth2/auth', params=params) as r1:
-        resp_text = await r1.text()
+    async with session.get(f'{LOGIN_URL}/oauth2/auth', params=params) as resp:
+        resp_text = await resp.text()
 
     email_regex = (
         r'^\s*(\w+(?:(?:-\w+)|(?:\.\w+)|(?:\+\w+))*\@'
@@ -50,9 +50,10 @@ async def async_get_oauth2_token(session: aiohttp.ClientSession, username: str, 
     }
     post_data['username'] = clean_username
     post_data['password'] = password
+    print(post_data)
 
-    async with session.post(f'{LOGIN_URL}/oauth2/g_authenticate', data=post_data, allow_redirects=False) as r2:
-        code = parse_qs(urlparse(r2.headers['Location']).query)['code'][0]
+    async with session.post(f'{LOGIN_URL}/oauth2/g_authenticate', data=post_data, allow_redirects=False) as resp:
+        code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
 
     post_data = {
         'code': code,
@@ -61,9 +62,9 @@ async def async_get_oauth2_token(session: aiohttp.ClientSession, username: str, 
         'redirect_uri': OAUTH2_REDIRECT_URI,
         'grant_type': 'authorization_code',
     }
-    async with session.post(f'{LOGIN_URL}/oauth2/token',
-                            data=post_data, auth=(OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET)) as r3:
-        oauth_token = await r3.json()
+    auth = aiohttp.BasicAuth(OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET)
+    async with session.post(f'{LOGIN_URL}/oauth2/token', data=post_data, auth=auth) as resp:
+        oauth_token = await resp.json()
     try:
         return {'Authorization': 'Bearer ' + oauth_token['access_token']}
     except KeyError:
