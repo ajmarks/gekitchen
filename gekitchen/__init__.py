@@ -1,6 +1,6 @@
 """GE Kitchen Appliances SDK"""
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 
 from .async_login_flow import (

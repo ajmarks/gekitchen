@@ -1,12 +1,12 @@
 import pathlib
-from setuptools import setup
+from setuptools import setup, find_namespace_packages
 
 try:
     import re2 as re
 except ImportError:
     import re
 
-packages = ["gekitchen"]
+base_package = "gekitchen"
 
 # The directory containing this file
 HERE = pathlib.Path(__file__).parent
@@ -15,7 +15,7 @@ HERE = pathlib.Path(__file__).parent
 README = (HERE / "README.md").read_text()
 
 # Pull the version from __init__.py so we don't need to maintain it in multiple places
-init_txt = (HERE / packages[0] / "__init__.py").read_text("utf-8")
+init_txt = (HERE / base_package / "__init__.py").read_text("utf-8")
 try:
     version = re.findall(r"^__version__ = ['\"]([^'\"]+)['\"]\r?$", init_txt, re.M)[0]
 except IndexError:
@@ -37,7 +37,7 @@ setup(
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.7",
     ],
-    packages=packages,
+    packages=find_namespace_packages(include=[f"{base_package}.*"]),
     include_package_data=False,
     install_requires=["aiohttp", "requests", "slixmpp==1.5.2"],
 )
