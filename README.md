@@ -24,6 +24,7 @@ client.process(timeout=120)
 Here we're going to run the client in a pre-existing event loop.  We're also going to register some event callbacks
 to update appliances every five minutes and to turn on our oven the first time we see it.  Because that is safe!
 ```python
+import aiohttp
 import asyncio
 import logging
 from datetime import timedelta
@@ -36,7 +37,7 @@ from gekitchen import (
     GeAppliance,
     GeClient,
     OvenCookSetting,
-    do_full_login_flow,
+    async_do_full_login_flow,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -76,16 +77,25 @@ async def do_periodic_update(appliance: GeAppliance):
         if appliance.available:
             await appliance.request_update()
 
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)-8s %(message)s')
-xmpp_credentials = do_full_login_flow(USERNAME, PASSWORD)
 
-evt_loop = asyncio.get_event_loop()
-client = GeClient(xmpp_credentials, event_loop=evt_loop)
-client.add_event_handler('appliance_state_change', detect_appliance_type)
-client.add_event_handler('add_appliance', do_periodic_update)
-client.connect()
-asyncio.ensure_future(client.process_in_running_loop(), loop=evt_loop)
-evt_loop.run_until_complete(asyncio.sleep(20 * 60))
+async def start_client(evt_loop: asyncio.AbstractEventLoop, username: str, password: str):
+    """Authenticate and launch the client."""
+    session = aiohttp.ClientSession()
+    _LOGGER.debug('Logging in')
+    xmpp_credentials = await async_do_full_login_flow(session, username, password)
+    
+    client = GeClient(xmpp_credentials, event_loop=evt_loop)
+    client.add_event_handler('appliance_state_change', detect_appliance_type)
+    client.add_event_handler('add_appliance', do_periodic_update)
+    _LOGGER.debug('Connecting')
+    client.connect()
+    _LOGGER.debug('Processing')
+    asyncio.ensure_future(client.process_in_running_loop(), loop=evt_loop)
+
+logging.basicConfig(level=logging.DEBUG, format='%(levelname)-8s %(message)s')
+loop = asyncio.get_event_loop()
+asyncio.ensure_future(start_client(loop, USERNAME, PASSWORD), loop=loop)
+loop.run_until_complete(asyncio.sleep(300))
 ```
 
 
