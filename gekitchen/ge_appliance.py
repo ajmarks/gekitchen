@@ -1,8 +1,8 @@
 """Classes to implement GE appliances"""
 
 import logging
-from typing import Any, Dict, Optional, Union
-from slixmpp import JID, ClientXMPP
+from typing import Any, Dict, Optional, TYPE_CHECKING, Union
+from slixmpp import JID
 from .erd_utils import (
     ERD_DECODERS,
     ERD_ENCODERS,
@@ -12,6 +12,9 @@ from .erd_utils import (
     translate_erd_code,
 )
 from .erd_constants import ErdApplianceType, ErdCode
+
+if TYPE_CHECKING:
+    from .ge_client import GeClient
 
 try:
     import ujson as json
@@ -44,14 +47,15 @@ class GeAppliance:
     _erd_decoders = ERD_DECODERS
     _erd_encoders = ERD_ENCODERS
 
-    def __init__(self, jid: Union[str, JID], xmpp_client: ClientXMPP):
+    def __init__(self, jid: Union[str, JID], client: "GeClient"):
         if not isinstance(jid, JID):
             jid = JID(jid)
         self._available = False
         self._jid = jid
         self._message_id = 0
         self._property_cache = {}  # type: Dict[ErdCodeType, Any]
-        self.xmpp_client = xmpp_client
+        self.client = client
+        self.initialized = False
 
     @property
     def jid(self) -> JID:
@@ -60,13 +64,13 @@ class GeAppliance:
     def send_raw_message(self, mto: JID, mbody: str, mtype: str = 'chat', msg_id: Optional[str] = None):
         """TODO: Use actual xml for this instead of hacking it.  Then again, this is what GE does in the app."""
         if msg_id is None:
-            msg_id = self.xmpp_client.new_id()
+            msg_id = self.client.new_id()
         raw_message = (
-            f'<message type="{mtype}" from="{self.xmpp_client.boundjid.bare}" to="{mto}" id="{msg_id}">'
+            f'<message type="{mtype}" from="{self.client.boundjid.bare}" to="{mto}" id="{msg_id}">'
             f'<body>{mbody}</body>'
             f'</message>'
         )
-        self.xmpp_client.send_raw(raw_message)
+        self.client.send_raw(raw_message)
 
     def send_request(
             self, method: str, uri: str, key: Optional[str] = None,
@@ -102,7 +106,7 @@ class GeAppliance:
 
     @property
     def available(self) -> bool:
-        return self._available
+        return self._available and self.initialized
 
     @property
     def appliance_type(self) -> Optional[ErdApplianceType]:
@@ -222,3 +226,6 @@ class GeAppliance:
         if appliance_type is None:
             appliance_type = 'Unknown Type'
         return f'{self.__class__.__name__}({self.jid.node}) ({appliance_type})'
+
+    def __format__(self, format_spec):
+        return str(self).__format__(format_spec)

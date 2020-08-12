@@ -9,3 +9,7 @@ OAUTH2_REDIRECT_URI = 'brillion.4e617a766474657344444e562b5935566e51324a://oauth
 LOGIN_URL = 'https://accounts.brillion.geappliances.com'
 API_URL = 'https://api.brillion.geappliances.com'
 SECURE_URL = 'https://secure.brillion.geappliances.com'
+
+EVENT_APPLIANCE_STATE_CHANGE = 'appliance_state_change'
+EVENT_ADD_APPLIANCE = 'add_appliance'
+EVENT_APPLIANCE_INITIAL_UPDATE = 'appliance_got_type'

@@ -7,6 +7,7 @@ except ImportError:
     import re
 import logging
 import aiohttp
+from abc import ABC, abstractmethod
 from lxml import etree
 from gekitchen.const import (
     API_URL,
@@ -82,7 +83,7 @@ async def async_get_mobile_device_token(session: aiohttp.ClientSession, auth_hea
         results = await r.json()
 
     try:
-        return (await r.json())['mdt']
+        return results['mdt']
     except KeyError:
         raise GeAuthError(f'Failed to get a mobile device token: {results}')
 
@@ -126,3 +127,32 @@ async def async_do_full_login_flow(session: aiohttp.ClientSession, username: str
     xmpp_credentials = await async_get_xmpp_credentials(session, ge_token)
 
     return xmpp_credentials
+
+
+class AbstractAuth(ABC):
+    """Abstract class to make authenticated requests."""
+
+    def __init__(self, websession: aiohttp.ClientSession):
+        """Initialize the auth."""
+        self.websession = websession
+
+    @abstractmethod
+    async def async_get_access_token(self) -> str:
+        """Return a valid access token."""
+
+    async def request(self, method, url, **kwargs) -> aiohttp.ClientResponse:
+        """Make a request."""
+        headers = kwargs.get("headers")
+
+        if headers is None:
+            headers = {}
+        else:
+            headers = dict(headers)
+
+        access_token = await self.async_get_access_token()
+        headers["authorization"] = f"Bearer {access_token}"
+
+        return await self.websession.request(
+            method, url, **kwargs, headers=headers,
+        )
+

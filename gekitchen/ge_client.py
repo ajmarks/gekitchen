@@ -4,8 +4,15 @@ import slixmpp
 import socket
 import ssl
 from lxml import etree
+from .const import (
+    EVENT_ADD_APPLIANCE,
+    EVENT_APPLIANCE_STATE_CHANGE,
+    EVENT_APPLIANCE_INITIAL_UPDATE,
+)
+from .erd_constants import ErdCode
+from .erd_utils import ErdCodeType
 from .ge_appliance import GeAppliance
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Set, Tuple
 
 try:
     import ujson as json
@@ -39,8 +46,10 @@ class GeClient(slixmpp.ClientXMPP):
         self.add_event_handler('session_start', self.on_start)
         self.add_event_handler('presence_available', self.on_presence_available)
         self.add_event_handler('presence_unavailable', self.on_presence_unavailable)
+        self.add_event_handler(EVENT_APPLIANCE_STATE_CHANGE, self.maybe_trigger_appliance_init_event)
         self.ssl_context.verify_mode = ssl.CERT_NONE
         self._appliances = {}  # type: Dict[str, GeAppliance]
+        self._initial_update_ids = set()  # type: Set[str]
 
     def connect(self, address: Optional[Tuple[str, int]] = None, use_ssl: bool = False,
                 force_starttls: bool = True, disable_starttls: bool = False):
@@ -58,7 +67,7 @@ class GeClient(slixmpp.ClientXMPP):
     def appliances(self) -> Dict[str, GeAppliance]:
         return self._appliances
 
-    async def on_presence_available(self, evt):
+    async def on_presence_available(self, evt: slixmpp.ElementBase):
         """Perform actions when notified of an available JID."""
         jid = slixmpp.JID(evt['from']).bare
         if jid == self.boundjid.bare:
@@ -74,10 +83,11 @@ class GeClient(slixmpp.ClientXMPP):
         if jid in self.appliances:
             raise RuntimeError('Trying to add duplicate appliance')
         new_appliance = GeAppliance(jid, self)
-        new_appliance.request_update()
-        self.appliances[jid] = new_appliance
-        self.event('add_appliance', new_appliance)
+
         _LOGGER.info(f'Adding appliance {jid}')
+        self.appliances[jid] = new_appliance
+        self.event(EVENT_ADD_APPLIANCE, new_appliance)
+        new_appliance.request_update()
 
     async def on_presence_unavailable(self, evt):
         """When appliance is no longer available, mark it as such."""
@@ -89,6 +99,18 @@ class GeClient(slixmpp.ClientXMPP):
             _LOGGER.debug(f'Appliance {jid} marked unavailable')
         except KeyError:
             pass
+
+    async def maybe_trigger_appliance_init_event(self, data: Tuple[GeAppliance, Dict[ErdCodeType, Any]]):
+        """
+        Trigger the appliance_got_type event if appropriate
+
+        :param data: GeAppliance updated and the updates
+        """
+        appliance, state_changes = data
+        if ErdCode.APPLIANCE_TYPE in state_changes:
+            _LOGGER.debug(f'Got initial appliance type for {appliance:s}')
+            appliance.initialized = True
+            self.event(EVENT_APPLIANCE_INITIAL_UPDATE, appliance)
 
     async def on_message(self, event):
         """Handle incoming messages."""
@@ -104,7 +126,7 @@ class GeClient(slixmpp.ClientXMPP):
             appliance = self.appliances[msg_from]
             state_changes = appliance.update_erd_values(message_data)
             if state_changes:
-                self.event('appliance_state_change', [appliance, state_changes])
+                self.event(EVENT_APPLIANCE_STATE_CHANGE, [appliance, state_changes])
         except KeyError:
             _LOGGER.warning('Received json message from unregistered appliance')
 

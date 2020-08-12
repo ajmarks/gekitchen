@@ -10,9 +10,7 @@ will probably need to wait on some new entity types.
 ### Simple Operation
 ```python
 from gekitchen import do_full_login_flow, GeClient
-
-USERNAME = 'me@email.com'
-PASSWORD = '$7r0nkP@s$w0rD'
+from secrets import USERNAME, PASSWORD
 
 xmpp_credentials = do_full_login_flow(USERNAME, PASSWORD)
 client = GeClient(xmpp_credentials)
@@ -30,6 +28,9 @@ import logging
 from datetime import timedelta
 from typing import Any, Dict, Tuple
 from gekitchen import (
+    EVENT_ADD_APPLIANCE,
+    EVENT_APPLIANCE_STATE_CHANGE,
+    EVENT_APPLIANCE_INITIAL_UPDATE,
     ErdApplianceType,
     ErdCode,
     ErdCodeType,
@@ -39,25 +40,25 @@ from gekitchen import (
     OvenCookSetting,
     async_do_full_login_flow,
 )
+from secrets import USERNAME, PASSWORD
 
 _LOGGER = logging.getLogger(__name__)
-USERNAME = 'me@email.com'
-PASSWORD = '$7r0nkP@s$w0rD'
 
-async def detect_appliance_type(data: Tuple[GeAppliance, Dict[ErdCodeType, Any]]):
+async def log_state_change(data: Tuple[GeAppliance, Dict[ErdCodeType, Any]]):
+    """Log changes in appliance state"""
+    appliance, state_changes = data
+    updated_keys = ', '.join([str(s) for s in state_changes])
+    _LOGGER.debug(f'Appliance state change detected in {appliance:s}. Updated keys: {updated_keys:s}')
+
+
+async def detect_appliance_type(appliance: GeAppliance):
     """
     Detect the appliance type.
     This should only be triggered once since the appliance type should never change.
 
     Also, let's turn on ovens!
     """
-    appliance, state_changes = data
-    _LOGGER.debug(f'Appliance state change detected in {appliance:s}')
-    try:
-        _LOGGER.info(f'Setting appliance type to {state_changes[ErdCode.APPLIANCE_TYPE]:s}')
-    except KeyError:
-        # Not an APPLIANCE_TYPE update
-        return
+    _LOGGER.debug(f'Appliance state change detected in {appliance}')
     if appliance.appliance_type == ErdApplianceType.OVEN:
         _LOGGER.info('Turning on the oven!')
         appliance.set_erd_value(
@@ -66,16 +67,16 @@ async def detect_appliance_type(data: Tuple[GeAppliance, Dict[ErdCodeType, Any]]
         )
         _LOGGER.info('Set the timer!')
         appliance.set_erd_value(ErdCode.UPPER_OVEN_KITCHEN_TIMER, timedelta(minutes=45))
+        pass
 
 
 async def do_periodic_update(appliance: GeAppliance):
-    """Request a full state update every five minutes forever"""
+    """Request a full state update every minute forever"""
     _LOGGER.debug(f'Registering update callback for {appliance:s}')
     while True:
-        await asyncio.sleep(5 * 60)
+        await asyncio.sleep(60 * 1)
         _LOGGER.debug(f'Requesting update for {appliance:s}')
-        if appliance.available:
-            await appliance.request_update()
+        appliance.request_update()
 
 
 async def start_client(evt_loop: asyncio.AbstractEventLoop, username: str, password: str):
@@ -83,10 +84,12 @@ async def start_client(evt_loop: asyncio.AbstractEventLoop, username: str, passw
     session = aiohttp.ClientSession()
     _LOGGER.debug('Logging in')
     xmpp_credentials = await async_do_full_login_flow(session, username, password)
+    await session.close()
     
     client = GeClient(xmpp_credentials, event_loop=evt_loop)
-    client.add_event_handler('appliance_state_change', detect_appliance_type)
-    client.add_event_handler('add_appliance', do_periodic_update)
+    client.add_event_handler(EVENT_APPLIANCE_INITIAL_UPDATE, detect_appliance_type)
+    client.add_event_handler(EVENT_APPLIANCE_STATE_CHANGE, log_state_change)
+    client.add_event_handler(EVENT_ADD_APPLIANCE, do_periodic_update)
     _LOGGER.debug('Connecting')
     client.connect()
     _LOGGER.debug('Processing')
@@ -194,8 +197,11 @@ Main XMPP client, and a subclass of `slixmpp.ClientXMPP`.
  * `appliances` A `Dict[str, GeAppliance]` of all known appliances keyed on the appliances' JIDs.
 #### Events
 In addition to the standard `slixmpp` events, the `GeClient` object has support for the following:
-* `'add_appliance'` - Triggered after a new appliance is added. The `GeAppliance` object is passed to the callback
-* `'appliance_state_change'` - Triggered when an appliance message with a new state, different from the existing, cached
+* `EVENT_ADD_APPLIANCE` - Triggered immediately after a new appliance is added, before the initial update request has
+even been sent. The `GeAppliance` object is passed to the callback.
+* `EVENT_APPLIANCE_INITIAL_UPDATE` - Triggered when an appliance's type changes, at which point we know at least a 
+little about the appliance. The `GeAppliance` object is passed to the callback.
+* `EVENT_APPLIANCE_STATE_CHANGE` - Triggered when an appliance message with a new state, different from the existing, cached
 state is received.  A tuple `(appliance, state_changes)` is passed to the callback, where `appliance` is the 
 `GeAppliance` object with the updated state and `state_changes` is a dictionary `{erd_key: new_value}` of the changed
 state.
