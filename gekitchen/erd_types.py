@@ -10,7 +10,7 @@ class AvailableCookMode(NamedTuple):
     """Parsing helper for Available Cook Modes"""
     byte: int
     mask: int
-    cook_mode: ErdOvenCookMode
+    cook_mode: "ErdOvenCookMode"
 
 
 class OvenConfiguration(NamedTuple):
@@ -25,10 +25,11 @@ class OvenConfiguration(NamedTuple):
 
 class OvenCookMode(NamedTuple):
     """Named tuple to represent ErdOvenCookMode for easier formatting later"""
-    oven_state: ErdOvenState
+    oven_state: "ErdOvenState"
     delayed: bool = False
     timed: bool = False
     probe: bool = False
+    warm: bool = False
     sabbath: bool = False
 
 
