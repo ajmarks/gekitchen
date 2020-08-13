@@ -80,7 +80,9 @@ class GeClient(slixmpp.ClientXMPP):
 
     async def on_presence_available(self, evt: slixmpp.ElementBase):
         """Perform actions when notified of an available JID."""
+        await asyncio.sleep(2)  # Wait 2 seconds to give it time to register
         jid = slixmpp.JID(evt['from']).bare
+
         if jid == self.boundjid.bare:
             return
         try:
@@ -88,10 +90,12 @@ class GeClient(slixmpp.ClientXMPP):
             _LOGGER.debug(f'Appliance {jid} marked available')
         except KeyError:
             await self.add_appliance(jid)
+            self.appliances[jid].set_available()
 
     async def on_presence_unavailable(self, evt):
         """When appliance is no longer available, mark it as such."""
         jid = slixmpp.JID(evt['from']).bare
+
         if jid == self.boundjid.bare:
             return
         try:

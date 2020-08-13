@@ -103,9 +103,11 @@ class GeAppliance:
         self.send_request('GET', '/UUID/cache')
 
     def set_available(self):
+        _LOGGER.debug(f'{self.jid} marked available')
         self._available = True
 
     def set_unavailable(self):
+        _LOGGER.debug(f'{self.jid} marked unavailable')
         self._available = False
 
     @property
