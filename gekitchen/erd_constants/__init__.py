@@ -8,4 +8,5 @@ from .erd_constants import (
     ErdOvenConfiguration,
     ErdOvenCookMode,
     ErdOvenState,
+    OVEN_COOK_MODE_MAP
 )

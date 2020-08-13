@@ -67,17 +67,6 @@ class GeClient(slixmpp.ClientXMPP):
     def appliances(self) -> Dict[str, GeAppliance]:
         return self._appliances
 
-    async def on_presence_available(self, evt: slixmpp.ElementBase):
-        """Perform actions when notified of an available JID."""
-        jid = slixmpp.JID(evt['from']).bare
-        if jid == self.boundjid.bare:
-            return
-        try:
-            self.appliances[jid].set_available()
-            _LOGGER.debug(f'Appliance {jid} marked available')
-        except KeyError:
-            await self.add_appliance(jid)
-
     async def add_appliance(self, jid: str):
         """Add an appliance to the registry and request an update."""
         if jid in self.appliances:
@@ -88,6 +77,17 @@ class GeClient(slixmpp.ClientXMPP):
         self.appliances[jid] = new_appliance
         self.event(EVENT_ADD_APPLIANCE, new_appliance)
         new_appliance.request_update()
+
+    async def on_presence_available(self, evt: slixmpp.ElementBase):
+        """Perform actions when notified of an available JID."""
+        jid = slixmpp.JID(evt['from']).bare
+        if jid == self.boundjid.bare:
+            return
+        try:
+            self.appliances[jid].set_available()
+            _LOGGER.debug(f'Appliance {jid} marked available')
+        except KeyError:
+            await self.add_appliance(jid)
 
     async def on_presence_unavailable(self, evt):
         """When appliance is no longer available, mark it as such."""
@@ -107,7 +107,7 @@ class GeClient(slixmpp.ClientXMPP):
         :param data: GeAppliance updated and the updates
         """
         appliance, state_changes = data
-        if ErdCode.APPLIANCE_TYPE in state_changes:
+        if ErdCode.APPLIANCE_TYPE in state_changes and not appliance.initialized:
             _LOGGER.debug(f'Got initial appliance type for {appliance:s}')
             appliance.initialized = True
             self.event(EVENT_APPLIANCE_INITIAL_UPDATE, appliance)

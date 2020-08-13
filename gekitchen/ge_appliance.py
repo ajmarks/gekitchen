@@ -1,7 +1,7 @@
 """Classes to implement GE appliances"""
 
 import logging
-from typing import Any, Dict, Optional, TYPE_CHECKING, Union
+from typing import Any, Dict, Optional, Set, TYPE_CHECKING, Union
 from slixmpp import JID
 from .erd_utils import (
     ERD_DECODERS,
@@ -60,6 +60,10 @@ class GeAppliance:
     @property
     def jid(self) -> JID:
         return self._jid
+
+    @property
+    def known_properties(self) -> Set[ErdCodeType]:
+        return set(self._property_cache)
 
     def send_raw_message(self, mto: JID, mbody: str, mtype: str = 'chat', msg_id: Optional[str] = None):
         """TODO: Use actual xml for this instead of hacking it.  Then again, this is what GE does in the app."""

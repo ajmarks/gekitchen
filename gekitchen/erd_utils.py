@@ -11,8 +11,14 @@ from .erd_constants import (
     ErdOvenConfiguration,
     ErdOvenCookMode,
     ErdOvenState,
+    OVEN_COOK_MODE_MAP,
 )
-from .erd_types import AvailableCookMode, OvenCookSetting, OvenConfiguration
+from .erd_types import (
+    AvailableCookMode,
+    OvenCookMode,
+    OvenCookSetting,
+    OvenConfiguration,
+)
 
 ErdCodeType = Union[ErdCode, str]
 
@@ -159,18 +165,21 @@ def _decode_oven_state(value: str) -> ErdOvenState:
 def _decode_oven_cook_mode(value: str) -> OvenCookSetting:
     """
     Get the cook mode and temperature.
-    TODO: Figure out what the other 10 bytes are for
+    TODO: Figure out what the other 10 bytes are for.
+        I'm guessing they have to do with two-temp cooking, probes, delayed starts, timers, etc.
     """
     byte_string = decode_erd_bytes(value)
     cook_mode_code = byte_string[0]
     temperature = int.from_bytes(byte_string[1:3], 'big')
-    return OvenCookSetting(cook_mode=ErdOvenCookMode(cook_mode_code), temperature=temperature, raw_bytes=byte_string)
+    cook_mode = ErdOvenCookMode(cook_mode_code)
+    return OvenCookSetting(cook_mode=OVEN_COOK_MODE_MAP[cook_mode], temperature=temperature, raw_bytes=byte_string)
 
 
 def _encode_oven_cook_mode(cook_setting: OvenCookSetting) -> str:
     """Re-encode a cook mode and temperature
     TODO: Other ten bytes"""
-    cook_mode_code = cook_setting.cook_mode.value
+    cook_mode = cook_setting.cook_mode
+    cook_mode_code = OVEN_COOK_MODE_MAP.inverse[cook_mode].value
     cook_mode_hex = cook_mode_code.to_bytes(1, 'big').hex()
     temperature_hex = cook_setting.temperature.to_bytes(2, 'big').hex()
     return cook_mode_hex + temperature_hex + ('00' * 10)
