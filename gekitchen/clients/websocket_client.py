@@ -10,7 +10,7 @@ from .base_client import GeBaseClient
 
 from ..async_login_flow import async_do_full_wss_flow
 from ..exc import GeNotAuthedError
-from ..const import API_URL, EVENT_ADD_APPLIANCE, EVENT_APPLIANCE_STATE_CHANGE
+from ..const import API_URL, EVENT_ADD_APPLIANCE, EVENT_APPLIANCE_STATE_CHANGE, EVENT_GOT_APPLIANCE_LIST
 from ..erd_constants import ErdCode
 from ..erd_utils import ErdCodeType
 from ..ge_appliance import GeAppliance
@@ -173,6 +173,7 @@ class GeWebsocketClient(GeBaseClient):
                 continue
             online = item['online'].upper() == "ONLINE"
             await self.add_appliance(mac_addr, online)
+        await self.async_event(EVENT_GOT_APPLIANCE_LIST, items)
 
     async def process_cache_update(self, message_dict: Dict):
         """
