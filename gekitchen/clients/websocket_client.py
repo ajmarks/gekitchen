@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import websockets
-from async_timeout import timeout
 from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -50,6 +49,7 @@ class GeWebsocketClient(GeBaseClient):
         self._event_handlers = defaultdict(list)  # type: Dict[str, List[Callable]]
         self.username = username
         self.password = password
+        self._keepalive_fut = None  # type: Optional[asyncio.Future]
 
         self.add_event_handler(EVENT_APPLIANCE_STATE_CHANGE, self.maybe_trigger_appliance_init_event)
 
@@ -241,21 +241,24 @@ class GeWebsocketClient(GeBaseClient):
             await self.async_event(EVENT_APPLIANCE_STATE_CHANGE, [appliance, state_changes])
 
     async def disconnect(self):
+        """Disconnect and cleanup."""
+        if self._keepalive_fut is not None:
+            self._keepalive_fut.set_result(True)
         await self.websocket.close()
 
     async def async_get_credentials_and_run(
             self, session: ClientSession, username: Optional[str] = None, password: Optional[str] = None,
             appliances: Optional[List[GeAppliance]] = None, keepalive: Optional[int] = 30):
-        """Do a full login flow and run the client"""
+        """Do a full login flow and run the client."""
         await self.async_get_credentials(session, username, password)
         await self.async_run_client(appliances, keepalive)
 
     async def async_run_client(self, appliances: Optional[List[GeAppliance]] = None, keepalive: Optional[int] = 30):
-        """Run the client"""
+        """Run the client."""
         async with websockets.connect(self.endpoint) as socket:
             self._socket = socket
             if keepalive:
-                asyncio.ensure_future(self.keep_alive(keepalive), loop=self.loop)
+                self._keepalive_fut = asyncio.ensure_future(self.keep_alive(keepalive), loop=self.loop)
             if not appliances:
                 await self.subscribe_all()
             else:
@@ -266,19 +269,24 @@ class GeWebsocketClient(GeBaseClient):
         self._socket = None
 
     async def send_dict(self, msg_dict: Dict[str, Any]):
+        """JSON encode a dictionary and send it."""
         payload = json.dumps(msg_dict)
         await self.websocket.send(payload)
 
-    async def keep_alive(self, keepalive: int = 20):
+    async def keep_alive(self, keepalive: int = 30):
+        """Send periodic pings to keep the connection alive."""
         while not self.websocket.closed:
             await asyncio.sleep(keepalive)
+            _LOGGER.debug("Sending keepalive ping")
             await self.send_ping()
 
     async def subscribe_all(self):
+        """Subscribe to all appliances."""
         msg_dict = {"kind": "websocket#subscribe", "action": "subscribe", "resources": ["/appliance/*/erd/*"]}
         await self.send_dict(msg_dict)
 
     async def subscribe_appliances(self, appliances: List[GeAppliance]):
+        """Subscribe to a list of appliances."""
         msg_dict = {
             "kind": "websocket#subscribe",
             "action": "subscribe",
@@ -287,6 +295,7 @@ class GeWebsocketClient(GeBaseClient):
         await self.send_dict(msg_dict)
 
     async def subscribe_appliance(self, appliance: GeAppliance):
+        """Subscribe to a single appliance."""
         await self.subscribe_appliances([appliance])
 
     async def async_set_erd_value(self, appliance: GeAppliance, erd_code: ErdCodeType, erd_value: Any):
@@ -320,6 +329,7 @@ class GeWebsocketClient(GeBaseClient):
         await self.send_dict(msg_dict)
 
     async def async_request_update(self, appliance: GeAppliance):
+        """Request an appliance send a full update."""
         _LOGGER.debug(f"Requesting update for client {appliance.mac_addr}")
         msg_dict = {
             "kind": "websocket#api",
@@ -332,6 +342,7 @@ class GeWebsocketClient(GeBaseClient):
         await self.send_dict(msg_dict)
 
     async def get_appliance_list(self):
+        """Request the list of appliances on this account."""
         msg_dict = {
             "kind": "websocket#api",
             "action": "api",
@@ -343,7 +354,7 @@ class GeWebsocketClient(GeBaseClient):
         await self.send_dict(msg_dict)
 
     async def send_ping(self):
-        _LOGGER.debug('Sending keepalive ping')
+        """Send a ping."""
         msg_dict = {
             "kind": "websocket#ping",
             "id": "keepalive-ping",

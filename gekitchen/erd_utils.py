@@ -470,7 +470,8 @@ ERD_DECODERS = {
     ErdCode.ICE_MAKER_BUCKET_STATUS: _decode_ice_bucket_status,
     ErdCode.ICE_MAKER_CONTROL: _decode_ice_maker_control,
     ErdCode.SETPOINT_LIMITS: _decode_fridge_limits,
-    ErdCode.TEMPERATURE_STATUS: _decode_fridge_setpoint,
+    ErdCode.CURRENT_TEMPERATURE: _decode_fridge_setpoint,
+    ErdCode.TEMPERATURE_SETTING: _decode_fridge_setpoint,
     # Oven
     ErdCode.OVEN_CONFIGURATION: _decode_oven_configuration,
     ErdCode.OVEN_MODE_MIN_MAX_TEMP: _decode_oven_ranges,
@@ -502,7 +503,7 @@ ERD_ENCODERS = {
     ErdCode.ICE_MAKER_CONTROL: _encode_ice_maker_control,
     ErdCode.LOWER_OVEN_COOK_MODE: _encode_oven_cook_mode,
     ErdCode.SOUND_LEVEL: _encode_sound_level,
-    ErdCode.TEMPERATURE_STATUS: _encode_fridge_setpoint,
+    ErdCode.TEMPERATURE_SETTING: _encode_fridge_setpoint,
     ErdCode.TEMPERATURE_UNIT: _encode_measurement_unit,
     ErdCode.UPPER_OVEN_COOK_MODE: _encode_oven_cook_mode,
 }

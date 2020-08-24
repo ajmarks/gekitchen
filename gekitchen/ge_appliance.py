@@ -52,7 +52,7 @@ class GeAppliance:
         if isinstance(mac_addr, JID):
             mac_addr = str(mac_addr.user).split('_')[0]
         self._available = False
-        self._mac_addr = mac_addr
+        self._mac_addr = mac_addr.upper()
         self._message_id = 0
         self._property_cache = {}  # type: Dict[ErdCodeType, Any]
         self.client = client
@@ -60,7 +60,7 @@ class GeAppliance:
 
     @property
     def mac_addr(self) -> str:
-        return self._mac_addr
+        return self._mac_addr.upper()
 
     @property
     def known_properties(self) -> Set[ErdCodeType]:

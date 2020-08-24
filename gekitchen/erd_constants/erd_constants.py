@@ -275,11 +275,13 @@ OVEN_COOK_MODE_MAP = bidict.bidict({
     ErdOvenCookMode.WARM_PROBE: OvenCookMode(ErdOvenState.WARM, False, False, True),
 })
 
+
 @enum.unique
 class ErdFullNotFull(enum.Enum):
     FULL = "01"
     NOT_FULL = "00"
     NA = "NA"
+
 
 @enum.unique
 class ErdDoorStatus(enum.Enum):
@@ -288,11 +290,13 @@ class ErdDoorStatus(enum.Enum):
     OPEN = "01"
     NA = "FF"
 
+
 @enum.unique
 class ErdOnOff(enum.Enum):
     ON = "01"
     OFF = "00"
     NA = "FF"
+
 
 @enum.unique
 class ErdPresent(enum.Enum):
