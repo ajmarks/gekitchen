@@ -1,6 +1,7 @@
 """Classes to implement GE appliances"""
 
 import logging
+from weakref import WeakValueDictionary
 from typing import Any, Dict, Optional, Set, TYPE_CHECKING, Union
 from slixmpp import JID
 from .erd_utils import (
@@ -14,7 +15,7 @@ from .erd_utils import (
 from .erd_constants import ErdApplianceType, ErdCode
 
 if TYPE_CHECKING:
-    from .ge_client import GeClient
+    from .clients import GeBaseClient
 
 try:
     import ujson as json
@@ -24,22 +25,6 @@ except ImportError:
 _LOGGER = logging.getLogger(__name__)
 
 
-def _format_request(
-        msg_id: Union[int, str], uri: str, method: str, key: Optional[str] = None, value: Optional[str] = None) -> str:
-    if method.lower() == 'post':
-        post_body = f"<json>{json.dumps({key:value})}</json>"
-    else:
-        post_body = ""
-    message = (
-        f"<request><id>{msg_id}</id>"
-        f"<method>{method}</method>"
-        f"<uri>{uri}</uri>"
-        f"{post_body}"
-        "</request>"  # [sic.]
-    )
-    return message
-
-
 class GeAppliance:
     """Base class shared by all appliances"""
 
@@ -47,67 +32,50 @@ class GeAppliance:
     _erd_decoders = ERD_DECODERS
     _erd_encoders = ERD_ENCODERS
 
-    def __init__(self, jid: Union[str, JID], client: "GeClient"):
-        if not isinstance(jid, JID):
-            jid = JID(jid)
+    # Registry of initialized appliances
+    _appliance_cache = WeakValueDictionary()
+
+    def __new__(cls, mac_addr: Union[str, JID], client: "GeBaseClient", *args, **kwargs):
+        if isinstance(mac_addr, JID):
+            mac_addr = str(mac_addr.user).split('_')[0]
+        obj = cls._appliance_cache.get(mac_addr)  # type: Optional["GeAppliance"]
+        if obj is not None:
+            if client.client_priority > obj.client.client_priority:
+                obj.client = client
+            return obj
+        obj = super(GeAppliance, cls).__new__(cls)
+        obj.__init__(mac_addr, client)
+        cls._appliance_cache[obj.mac_addr] = obj
+        return obj
+
+    def __init__(self, mac_addr: Union[str, JID], client: "GeBaseClient"):
+        if isinstance(mac_addr, JID):
+            mac_addr = str(mac_addr.user).split('_')[0]
         self._available = False
-        self._jid = jid
+        self._mac_addr = mac_addr
         self._message_id = 0
         self._property_cache = {}  # type: Dict[ErdCodeType, Any]
         self.client = client
         self.initialized = False
 
     @property
-    def jid(self) -> JID:
-        return self._jid
+    def mac_addr(self) -> str:
+        return self._mac_addr
 
     @property
     def known_properties(self) -> Set[ErdCodeType]:
         return set(self._property_cache)
 
-    def send_raw_message(self, mto: JID, mbody: str, mtype: str = 'chat', msg_id: Optional[str] = None):
-        """TODO: Use actual xml for this instead of hacking it.  Then again, this is what GE does in the app."""
-        if msg_id is None:
-            msg_id = self.client.new_id()
-        raw_message = (
-            f'<message type="{mtype}" from="{self.client.boundjid.bare}" to="{mto}" id="{msg_id}">'
-            f'<body>{mbody}</body>'
-            f'</message>'
-        )
-        self.client.send_raw(raw_message)
-
-    def send_request(
-            self, method: str, uri: str, key: Optional[str] = None,
-            value: Optional[str] = None, message_id: Optional[str] = None):
-        """
-        Send a pseudo-http request to the appliance
-        :param method: str, Usually "GET" or "POST"
-        :param uri: str, the "endpoint" for the request, usually of the form "/UUID/erd/{erd_code}"
-        :param key: The json key to set in a POST request.  Usually a four-character hex string with leading "0x".
-        :param value: The value to set, usually encoded as a hex string without a leading "0x"
-        :param message_id:
-        """
-        if method.lower() != 'post' and (key is not None or value is not None):
-            raise RuntimeError('Values can only be set in a POST request')
-
-        if message_id is None:
-            message_id = self._message_id
-        else:
-            self._message_id += 1
-            message_id = self._message_id
-        message_body = _format_request(message_id, uri, method, key, value)
-        self.send_raw_message(self.jid, message_body)
-
-    def request_update(self):
+    async def async_request_update(self):
         """Request the appliance send a full state update"""
-        self.send_request('GET', '/UUID/cache')
+        await self.client.async_request_update(self)
 
     def set_available(self):
-        _LOGGER.debug(f'{self.jid} marked available')
+        _LOGGER.debug(f'{self.mac_addr} marked available')
         self._available = True
 
     def set_unavailable(self):
-        _LOGGER.debug(f'{self.jid} marked unavailable')
+        _LOGGER.debug(f'{self.mac_addr} marked unavailable')
         self._available = False
 
     @property
@@ -122,7 +90,7 @@ class GeAppliance:
         """
         Decode and ERD Code raw value into something useful.  If the erd_code is a string that
         cannot be resolved to a known ERD Code, the value will be treated as raw byte string.
-        Nonregistered ERD Codes will be translated as ints.
+        Unregistered ERD Codes will be translated as ints.
 
         TODO: Register the numeric fields, and change the default behavior to bytestring
 
@@ -171,20 +139,14 @@ class GeAppliance:
         erd_code = translate_erd_code(erd_code)
         return self._property_cache[erd_code]
 
-    def set_erd_value(self, erd_code: ErdCodeType, value: Any):
+    async def async_set_erd_value(self, erd_code: ErdCodeType, value: Any):
         """
-        Send a new erd value to the appliance
+        Send a new erd value to the appliance.
         :param erd_code: The ERD code to update
         :param value: The new value to set
         """
         erd_value = self.encode_erd_value(erd_code, value)
-        if isinstance(erd_code, ErdCode):
-            raw_erd_code = erd_code.value
-        else:
-            raw_erd_code = erd_code
-
-        uri = f'/UUID/erd/{raw_erd_code}'
-        self.send_request('POST', uri, raw_erd_code, erd_value)
+        await self.client.async_set_erd_value(self, erd_code, erd_value)
 
     def update_erd_value(
             self, erd_code: ErdCodeType, erd_value: str) -> bool:
@@ -231,7 +193,7 @@ class GeAppliance:
         appliance_type = self.appliance_type
         if appliance_type is None:
             appliance_type = 'Unknown Type'
-        return f'{self.__class__.__name__}({self.jid.node}) ({appliance_type})'
+        return f'{self.__class__.__name__}({self.mac_addr}) ({appliance_type})'
 
     def __format__(self, format_spec):
         return str(self).__format__(format_spec)

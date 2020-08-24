@@ -39,5 +39,6 @@ setup(
     ],
     packages=find_namespace_packages(include=[base_package, f"{base_package}.*"]),
     include_package_data=False,
-    install_requires=["aiohttp", "bidict", "requests", "slixmpp==1.5.2"],
+    install_requires=["aiohttp", "bidict", "requests", "websockets"],
+    extras_require={"XMPP": ["slixmpp==1.5.2"]}
 )

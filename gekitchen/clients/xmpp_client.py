@@ -1,18 +1,21 @@
 import asyncio
 import logging
+
 import slixmpp
 import socket
 import ssl
+from aiohttp import ClientSession
 from lxml import etree
-from .const import (
+from ..const import (
     EVENT_ADD_APPLIANCE,
     EVENT_APPLIANCE_STATE_CHANGE,
-    EVENT_APPLIANCE_INITIAL_UPDATE,
 )
-from .erd_constants import ErdCode
-from .erd_utils import ErdCodeType
-from .ge_appliance import GeAppliance
-from typing import Any, Dict, Optional, Set, Tuple
+from ..async_login_flow import async_do_full_xmpp_flow
+from ..erd_constants import ErdCode
+from ..erd_utils import ErdCodeType
+from ..ge_appliance import GeAppliance
+from .base_client import GeBaseClient
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, Callable
 
 try:
     import ujson as json
@@ -32,13 +35,34 @@ def _first_or_none(lst: list) -> Any:
 set_timer = False
 
 
-class GeClient(slixmpp.ClientXMPP):
-    def __init__(self, xmpp_credentials: Dict, event_loop: Optional[asyncio.AbstractEventLoop] = None, **kwargs):
-        # If we have our own even loop, use that
-        self._loop = event_loop
-        self._xmpp_credentials = xmpp_credentials
+def _format_request(
+        msg_id: Union[int, str], uri: str, method: str, key: Optional[str] = None, value: Optional[str] = None) -> str:
+    """Format a XMPP pseudo-HTTP request."""
+    if method.lower() == 'post':
+        post_body = f"<json>{json.dumps({key:value})}</json>"
+    else:
+        post_body = ""
+    message = (
+        f"<request><id>{msg_id}</id>"
+        f"<method>{method}</method>"
+        f"<uri>{uri}</uri>"
+        f"{post_body}"
+        "</request>"  # [sic.]
+    )
+    return message
 
-        super().__init__(xmpp_credentials['jid'], xmpp_credentials['password'], **kwargs)
+
+class GeXmppClient(GeBaseClient, slixmpp.ClientXMPP):
+    client_priority = 1
+
+    def add_event_handler(self, event: str, callback: Callable, disposable: bool = False):
+        super(GeBaseClient, self).add_event_handler(event, callback, disposable)
+
+    def __init__(self, xmpp_credentials: Dict, event_loop: Optional[asyncio.AbstractEventLoop] = None,
+                 known_jids: Optional[List[str]] = None, **kwargs):
+        GeBaseClient.__init__(self, event_loop)
+        slixmpp.ClientXMPP.__init__(self, xmpp_credentials['jid'], xmpp_credentials['password'], **kwargs)
+        self.credentials = xmpp_credentials
         self.register_plugin('xep_0030')  # Service Discovery
         self.register_plugin('xep_0199')  # XMPP Ping
 
@@ -48,14 +72,18 @@ class GeClient(slixmpp.ClientXMPP):
         self.add_event_handler('presence_unavailable', self.on_presence_unavailable)
         self.add_event_handler(EVENT_APPLIANCE_STATE_CHANGE, self.maybe_trigger_appliance_init_event)
         self.ssl_context.verify_mode = ssl.CERT_NONE
-        self._appliances = {}  # type: Dict[str, GeAppliance]
+
+        if known_jids is None:
+            known_jids = []
+        self._known_jids = [self.complete_jid(j) for j in known_jids]
+
         self._initial_update_ids = set()  # type: Set[str]
 
     def connect(self, address: Optional[Tuple[str, int]] = None, use_ssl: bool = False,
                 force_starttls: bool = True, disable_starttls: bool = False):
         """Connect to the XMPP server."""
         if address is None:
-            address = (self._xmpp_credentials['address'], self._xmpp_credentials['port'])
+            address = (self._credentials['address'], self._credentials['port'])
         super().connect(
             address=address,
             use_ssl=use_ssl,
@@ -63,20 +91,25 @@ class GeClient(slixmpp.ClientXMPP):
             disable_starttls=disable_starttls
         )
 
-    @property
-    def appliances(self) -> Dict[str, GeAppliance]:
-        return self._appliances
-
     async def add_appliance(self, jid: str):
         """Add an appliance to the registry and request an update."""
+        mac_addr = jid.split('_')[0]
         if jid in self.appliances:
+            # TODO: Make this a package-specific exception
             raise RuntimeError('Trying to add duplicate appliance')
-        new_appliance = GeAppliance(jid, self)
+        new_appliance = GeAppliance(mac_addr, self)
 
         _LOGGER.info(f'Adding appliance {jid}')
         self.appliances[jid] = new_appliance
         self.event(EVENT_ADD_APPLIANCE, new_appliance)
-        new_appliance.request_update()
+        await new_appliance.async_request_update()
+
+    async def maybe_add_add_appliance(self, jid: str):
+        """Add an appliance, suppressing the error if it already exists."""
+        try:
+            await self.add_appliance(jid)
+        except RuntimeError:
+            pass
 
     async def on_presence_available(self, evt: slixmpp.ElementBase):
         """Perform actions when notified of an available JID."""
@@ -104,18 +137,6 @@ class GeClient(slixmpp.ClientXMPP):
         except KeyError:
             pass
 
-    async def maybe_trigger_appliance_init_event(self, data: Tuple[GeAppliance, Dict[ErdCodeType, Any]]):
-        """
-        Trigger the appliance_got_type event if appropriate
-
-        :param data: GeAppliance updated and the updates
-        """
-        appliance, state_changes = data
-        if ErdCode.APPLIANCE_TYPE in state_changes and not appliance.initialized:
-            _LOGGER.debug(f'Got initial appliance type for {appliance:s}')
-            appliance.initialized = True
-            self.event(EVENT_APPLIANCE_INITIAL_UPDATE, appliance)
-
     async def on_message(self, event):
         """Handle incoming messages."""
         global set_timer
@@ -137,12 +158,18 @@ class GeClient(slixmpp.ClientXMPP):
     async def on_start(self, event):
         _LOGGER.debug('Starting session: ' + str(event))
         self.send_presence('available')
+        await asyncio.sleep(5)
+        for jid in self._known_jids:
+            await self.maybe_add_add_appliance(jid)
 
     def complete_jid(self, jid) -> str:
         """Make a complete jid from a username"""
-        if '@' in jid:
+        if "@" in jid:
             return jid
-        return f'{jid}@{self.boundjid.host}'
+        return f"{jid}@{self.boundjid.host}"
+
+    def get_appliance_jid(self, appliance: GeAppliance) -> str:
+        return self.complete_jid(f"{appliance.mac_addr}_{self.user_id}")
 
     @staticmethod
     def extract_message_json(message: str) -> Dict:
@@ -204,8 +231,7 @@ class GeClient(slixmpp.ClientXMPP):
             )
             self.connect_loop_wait = 0
         except socket.gaierror:
-            self.event('connection_failed',
-                       'No DNS record available for %s' % self.default_domain)
+            self.event('connection_failed', 'No DNS record available for %s' % self.default_domain)
         except OSError as e:
             _LOGGER.debug('Connection failed: %s', e)
             self.event("connection_failed", e)
@@ -215,3 +241,65 @@ class GeClient(slixmpp.ClientXMPP):
             self._current_connection_attempt = asyncio.ensure_future(
                 self._connect_routine(), loop=self.loop,
             )
+
+    def send_raw_message(self, mto: slixmpp.JID, mbody: str, mtype: str = 'chat', msg_id: Optional[str] = None):
+        """TODO: Use actual xml for this instead of hacking it.  Then again, this is what GE does in the app."""
+        if msg_id is None:
+            msg_id = self.new_id()
+        raw_message = (
+            f'<message type="{mtype}" from="{self.boundjid.bare}" to="{mto}" id="{msg_id}">'
+            f'<body>{mbody}</body>'
+            f'</message>'
+        )
+        self.send_raw(raw_message)
+
+    def send_request(
+            self, appliance: GeAppliance, method: str, uri: str, key: Optional[str] = None,
+            value: Optional[str] = None, message_id: Optional[str] = None):
+        """
+        Send a pseudo-http request to the appliance
+        :param appliance: GeAppliance, the appliance to send the request to
+        :param method: str, Usually "GET" or "POST"
+        :param uri: str, the "endpoint" for the request, usually of the form "/UUID/erd/{erd_code}"
+        :param key: The json key to set in a POST request.  Usually a four-character hex string with leading "0x".
+        :param value: The value to set, usually encoded as a hex string without a leading "0x"
+        :param message_id:
+        """
+        if method.lower() != 'post' and (key is not None or value is not None):
+            raise RuntimeError('Values can only be set in a POST request')
+
+        if message_id is None:
+            message_id = self.new_id()
+        message_body = _format_request(message_id, uri, method, key, value)
+        jid = slixmpp.JID(self.get_appliance_jid(appliance))
+        self.send_raw_message(jid, message_body)
+
+    async def async_request_update(self, appliance: GeAppliance):
+        """Request a full update from the appliance."""
+        self.send_request(appliance, 'GET', '/UUID/cache')
+
+    async def async_set_erd_value(self, appliance: GeAppliance, erd_code: ErdCodeType, erd_value: Any):
+        """
+        Send a new erd value to the appliance
+        :param appliance: GeAppliance, the appliance to update
+        :param erd_code: The ERD code to update
+        :param erd_value: The new value to set
+        """
+        if isinstance(erd_code, ErdCode):
+            raw_erd_code = erd_code.value
+        else:
+            raw_erd_code = erd_code
+
+        uri = f'/UUID/erd/{raw_erd_code}'
+        self.send_request(appliance, 'POST', uri, raw_erd_code, erd_value)
+
+    async def async_get_credentials(self, session: ClientSession, username: str, password: str) -> bool:
+        xmpp_credentials = await async_do_full_xmpp_flow(session, username, password)
+        self.credentials = xmpp_credentials
+        self.set_jid(xmpp_credentials['jid'])
+        self.password = xmpp_credentials['password']
+        return True
+
+    async def async_event(self, event: str, data: Any = None):
+        """Make awaiting work here"""
+        super(GeBaseClient, self).event(event, data)

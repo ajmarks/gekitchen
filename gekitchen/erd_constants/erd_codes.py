@@ -1,8 +1,9 @@
 """ERD Codes for GE appliances"""
-from enum import Enum
+import enum
 
 
-class ErdCode(Enum):
+@enum.unique
+class ErdCode(enum.Enum):
     """
     ERD codes for GE kitchen appliance properties.
     These were mostly lifted from ERD.smali in the the GE SmartHQ app v1.0.3.13
@@ -17,6 +18,14 @@ class ErdCode(Enum):
     TEMPERATURE_UNIT = "0x0007"
     USER_INTERFACE_LOCKED = "0x0004"
 
+    # Low-level-type things
+    WIFI_MODULE_SW_VERSION = "0x0100"
+    WIFI_MODULE_SW_VERSION_AVAILABLE = "0x0101"
+    ACM_UPDATING = "0x0102"
+    APPLIANCE_SW_VERSION = "0x0103"
+    APPLIANCE_SW_VERSION_AVAILABLE = "0x0104"
+    APPLIANCE_UPDATING = "0x0105"
+
     # Dishwasher Codes
     CYCLE_NAME = "0x301c"
     CYCLE_STATE = "0x300e"
@@ -27,7 +36,9 @@ class ErdCode(Enum):
     TIME_REMAINING = "0xd004"
 
     # Fridge codes
+    AIR_FILTER_STATUS = "0x101c"
     DOOR_STATUS = "0x1016"
+    FRIDGE_MODEL_INFO = "0x101d"
     HOT_WATER_LOCAL_USE = "0x1018"
     HOT_WATER_SET_TEMP = "0x1011"
     HOT_WATER_STATUS = "0x1010"

@@ -111,7 +111,14 @@ async def async_get_xmpp_credentials(session: aiohttp.ClientSession, ge_token: s
         return await r.json()
 
 
-async def async_do_full_login_flow(session: aiohttp.ClientSession, username: str, password: str) -> Dict:
+async def async_get_wss_credentials(session: aiohttp.ClientSession, auth_header: Dict) -> Dict:
+    """Get WSS credentials"""
+    uri = f'{API_URL}/v1/websocket'
+    async with session.get(uri, headers=auth_header) as r:
+        return await r.json()
+
+
+async def async_do_full_xmpp_flow(session: aiohttp.ClientSession, username: str, password: str) -> Dict:
     """Perform a complete login flow, returning XMPP credentials."""
 
     _LOGGER.debug('Getting oauth2 token')
@@ -127,6 +134,18 @@ async def async_do_full_login_flow(session: aiohttp.ClientSession, username: str
     xmpp_credentials = await async_get_xmpp_credentials(session, ge_token)
 
     return xmpp_credentials
+
+
+async def async_do_full_wss_flow(session: aiohttp.ClientSession, username: str, password: str) -> Dict:
+    """Perform a complete login flow, returning WSS credentials."""
+
+    _LOGGER.debug('Getting oauth2 token')
+    auth_header = await async_get_oauth2_token(session, username, password)
+
+    _LOGGER.debug('Getting mobile device token')
+    wss_credentials = await async_get_wss_credentials(session, auth_header)
+
+    return wss_credentials
 
 
 class AbstractAuth(ABC):

@@ -1,24 +1,11 @@
 """Conversion functions for ERD values"""
 
-from datetime import timedelta
 import logging
-from typing import Any, Optional, Set, Tuple, Union
-from .erd_constants import (
-    ErdApplianceType,
-    ErdCode,
-    ErdMeasurementUnits,
-    ErdAvailableCookMode,
-    ErdOvenConfiguration,
-    ErdOvenCookMode,
-    ErdOvenState,
-    OVEN_COOK_MODE_MAP,
-)
-from .erd_types import (
-    AvailableCookMode,
-    OvenCookMode,
-    OvenCookSetting,
-    OvenConfiguration,
-)
+from datetime import timedelta
+from textwrap import wrap
+from typing import Optional, Set, Tuple, Union
+from .erd_constants import *
+from .erd_types import *
 
 ErdCodeType = Union[ErdCode, str]
 
@@ -42,7 +29,7 @@ def translate_erd_code(erd_code: ErdCodeType) -> ErdCodeType:
         pass
 
     try:
-        return ErdCode(erd_code)
+        return ErdCode(erd_code.lower())
     except ValueError:
         # raise UnknownErdCode(f"Unable to resolve erd_code '{erd_code}'")
         return erd_code
@@ -51,6 +38,25 @@ def translate_erd_code(erd_code: ErdCodeType) -> ErdCodeType:
 def decode_erd_int(value: str) -> int:
     """Decode an integer value sent as a hex encoded string."""
     return int(value, 16)
+
+
+def decode_signed_byte(value: str) -> int:
+    """
+    Convert a hex byte to a signed int.  Copied from GE's hextodec method.
+    """
+    val = int(value, 16)
+    if val > 128:
+        return val - 256
+    return val
+
+
+def encode_signed_byte(value: int) -> str:
+    """
+    Convert a hex byte to a signed int.  Copied from GE's hextodec method.
+    """
+    if value < 0:
+        value = value + 256
+    return value.to_bytes(1, "big").hex()
 
 
 def _encode_erd_int(value: int) -> str:
@@ -202,12 +208,210 @@ def _decode_oven_configuration(value: str) -> OvenConfiguration:
     return config
 
 
+def _decode_ice_bucket_status(value: str) -> FridgeIceBucketStatus:
+    """Decode Ice bucket status"""
+    if not value:
+        n = 0
+    else:
+        n = decode_erd_int(value)
+
+    is_present_ff = bool(n & 1)
+    is_present_fz = bool(n & 2)
+    state_full_ff = ErdFullNotFull.FULL if n & 4 else ErdFullNotFull.NOT_FULL
+    state_full_fz = ErdFullNotFull.FULL if n & 8 else ErdFullNotFull.NOT_FULL
+
+    if not is_present_ff:
+        state_full_ff = ErdFullNotFull.NA
+    if not is_present_fz:
+        state_full_fz = ErdFullNotFull.NA
+
+    if not (is_present_ff or is_present_ff):
+        # No ice buckets at all
+        total_status = ErdFullNotFull.NA
+    elif (state_full_ff == ErdFullNotFull.NOT_FULL) or (state_full_fz == ErdFullNotFull.NOT_FULL):
+        # At least one bucket is not full
+        total_status = ErdFullNotFull.NOT_FULL
+    else:
+        total_status = ErdFullNotFull.FULL
+
+    ice_status = FridgeIceBucketStatus(
+        state_full_fridge=state_full_ff,
+        state_full_freezer=state_full_fz,
+        is_present_fridge=is_present_ff,
+        is_present_freezer=is_present_fz,
+        total_status=total_status,
+    )
+    return ice_status
+
+
+def _decode_ice_maker_control(value: str) -> IceMakerControlStatus:
+    def parse_status(val: str) -> ErdOnOff:
+        try:
+            return ErdOnOff(val)
+        except ValueError:
+            return ErdOnOff.NA
+
+    status_fz = parse_status(value[:2])
+    status_ff = parse_status(value[2:])
+
+    return IceMakerControlStatus(status_fridge=status_ff, status_freezer=status_fz)
+
+
+def _encode_ice_maker_control(value: IceMakerControlStatus) -> str:
+    return value.status_freezer.value + value.status_fridge.value
+
+
+def _decode_fridge_door(value: str) -> FridgeDoorStatus:
+    def get_door_status(val: str) -> ErdDoorStatus:
+        try:
+            return ErdDoorStatus(val)
+        except ValueError:
+            return ErdDoorStatus.NA
+
+    fridge_right = get_door_status(value[:2])
+    fridge_left = get_door_status(value[2:4])
+    freezer = get_door_status(value[4:6])
+    drawer = get_door_status(value[6:8])
+    if (fridge_right != ErdDoorStatus.OPEN) and (fridge_left != ErdDoorStatus.OPEN):
+        if freezer == ErdDoorStatus.OPEN:
+            status = "Freezer Open"
+        else:
+            status = "Closed"
+    elif freezer == ErdDoorStatus.OPEN:
+        status = "All Open"
+    else:
+        status = "Fridge Open"
+    return FridgeDoorStatus(
+        fridge_right=fridge_right,
+        fridge_left=fridge_left,
+        freezer=freezer,
+        drawer=drawer,
+        status=status,
+    )
+
+
+def _decode_fridge_limits(value: str) -> FridgeSetPointLimits:
+    return FridgeSetPointLimits(
+        fridge_min=decode_signed_byte(value[0:2]),
+        fridge_max=decode_signed_byte(value[2:4]),
+        freezer_min=decode_signed_byte(value[4:6]),
+        freezer_max=decode_signed_byte(value[6:8]),
+    )
+
+
+def _decode_fridge_setpoint(value: str) -> FridgeSetPoints:
+    return FridgeSetPoints(
+        fridge=decode_signed_byte(value[0:2]),
+        freezer=decode_signed_byte(value[2:4]),
+    )
+
+
+def _encode_fridge_setpoint(value: FridgeSetPoints) -> str:
+    return encode_signed_byte(value.fridge) + encode_signed_byte(value.freezer)
+
+
+def _decode_hot_water_status(value: str) -> HotWaterStatus:
+    if not value:
+        return HotWaterStatus(
+            status=ErdHotWaterStatus.NA,
+            time_until_ready=None,
+            current_temp=None,
+            tank_full=ErdFullNotFull.NA,
+            brew_module=ErdPresent.NA,
+            pod_status=ErdPodStatus.NA,
+        )
+    try:
+        status = ErdHotWaterStatus(value[:2])
+    except ValueError:
+        status = ErdHotWaterStatus.NA
+
+    time_until_ready = timedelta(minutes=decode_erd_int(value[2:6]))
+    current_temp = decode_erd_int(value[6:8])
+
+    try:
+        tank_full = ErdFullNotFull(value[8:10])
+    except ValueError:
+        tank_full = ErdFullNotFull.NA
+
+    try:
+        brew_module = ErdPresent(value[10:12])
+    except ValueError:
+        brew_module = ErdPresent.NA
+
+    try:
+        pod_status = ErdPodStatus(value[12:14])
+    except ValueError:
+        pod_status = ErdPodStatus.NA
+
+    return HotWaterStatus(
+        status=status,
+        time_until_ready=time_until_ready,
+        current_temp=current_temp,
+        tank_full=tank_full,
+        brew_module=brew_module,
+        pod_status=pod_status,
+    )
+
+
+def _decode_filter_status(value: str) -> ErdFilterStatus:
+    """Decode water filter status.
+
+    This appears to be 9 bytes, of which only the first two are obviously used. I suspect that the others
+    relate to how much time remains on the filter.  Leaving as a TODO.
+    """
+    status_byte = value[:2]
+    if status_byte == "00":
+        status_byte = value[2:4]
+    try:
+        return ErdFilterStatus(status_byte)
+    except ValueError:
+        return ErdFilterStatus.NA
+
+
+def _decode_sw_version(value: str) -> str:
+    """
+    Decode a software version string.
+    These are sent as four bytes, encoding each part of a four-element version string.
+    """
+    vals = wrap(value, 2)
+    return '.'.join(str(decode_erd_int(val)) for val in vals)
+
+
+def _decode_end_tone(value: str) -> ErdEndTone:
+    try:
+        return ErdEndTone(value)
+    except ValueError:
+        return ErdEndTone.NA
+
+
+def _encode_end_tone(value: ErdEndTone) -> str:
+    if value == ErdEndTone.NA:
+        raise ValueError("Invalid EndTone value")
+    return value.value
+
+
+def _decode_sound_level(value: str) -> ErdSoundLevel:
+    sound_level = decode_erd_int(value)
+    return ErdSoundLevel(sound_level)
+
+
+def _encode_sound_level(value: ErdSoundLevel) -> str:
+    return _encode_erd_int(value.value)
+
+
+def _decode_clock_format(value: str) -> ErdClockFormat:
+    return ErdClockFormat(value)
+
+
+def _encode_clock_format(value: ErdClockFormat) -> str:
+    return value.value
+
+
 # Decoders for non-numeric fields
+
 ERD_DECODERS = {
+    ###################################################################
     # Integers
-    ErdCode.CLOCK_FORMAT: decode_erd_int,
-    ErdCode.END_TONE: decode_erd_int,
-    ErdCode.SOUND_LEVEL: decode_erd_int,
     ErdCode.LOWER_OVEN_DISPLAY_TEMPERATURE: decode_erd_int,
     ErdCode.LOWER_OVEN_PROBE_DISPLAY_TEMP: decode_erd_int,
     ErdCode.LOWER_OVEN_RAW_TEMPERATURE: decode_erd_int,
@@ -217,10 +421,12 @@ ERD_DECODERS = {
     ErdCode.UPPER_OVEN_RAW_TEMPERATURE: decode_erd_int,
     ErdCode.UPPER_OVEN_USER_TEMP_OFFSET: decode_erd_int,
 
+    ###################################################################
     # Strings
     ErdCode.MODEL_NUMBER: _decode_erd_string,
     ErdCode.SERIAL_NUMBER: _decode_erd_string,
 
+    ###################################################################
     # Booleans
     ErdCode.CONVECTION_CONVERSION: _decode_erd_bool,
     ErdCode.HOUR_12_SHUTOFF_ENABLED: _decode_erd_bool,
@@ -229,7 +435,12 @@ ERD_DECODERS = {
     ErdCode.LOWER_OVEN_REMOTE_ENABLED: _decode_erd_bool,
     ErdCode.UPPER_OVEN_PROBE_PRESENT: _decode_erd_bool,
     ErdCode.UPPER_OVEN_REMOTE_ENABLED: _decode_erd_bool,
+    ErdCode.TURBO_FREEZE_STATUS: _decode_erd_bool,
+    ErdCode.TURBO_COOL_STATUS: _decode_erd_bool,
+    ErdCode.ACM_UPDATING: _decode_erd_bool,
+    ErdCode.APPLIANCE_UPDATING: _decode_erd_bool,
 
+    ###################################################################
     # Time spans
     ErdCode.LOWER_OVEN_COOK_TIME_REMAINING: _decode_timespan,
     ErdCode.LOWER_OVEN_DELAY_TIME_REMAINING: _decode_timespan,
@@ -240,19 +451,37 @@ ERD_DECODERS = {
     ErdCode.UPPER_OVEN_ELAPSED_COOK_TIME: _decode_timespan,
     ErdCode.UPPER_OVEN_KITCHEN_TIMER: _decode_timespan,
 
+    ###################################################################
     # Special handling
+    # Universal
+    ErdCode.APPLIANCE_SW_VERSION: _decode_sw_version,
+    ErdCode.APPLIANCE_SW_VERSION_AVAILABLE: _decode_sw_version,
     ErdCode.APPLIANCE_TYPE: _decode_appliance_type,
+    ErdCode.CLOCK_FORMAT: _decode_clock_format,
+    ErdCode.END_TONE: _decode_end_tone,
+    ErdCode.SOUND_LEVEL: _decode_sound_level,
+    ErdCode.TEMPERATURE_UNIT: _decode_measurement_unit,
+    ErdCode.WIFI_MODULE_SW_VERSION: _decode_sw_version,
+    ErdCode.WIFI_MODULE_SW_VERSION_AVAILABLE: _decode_sw_version,
+
+    # Fridge
+    ErdCode.DOOR_STATUS: _decode_fridge_door,
+    ErdCode.HOT_WATER_STATUS: _decode_hot_water_status,
+    ErdCode.ICE_MAKER_BUCKET_STATUS: _decode_ice_bucket_status,
+    ErdCode.ICE_MAKER_CONTROL: _decode_ice_maker_control,
+    ErdCode.SETPOINT_LIMITS: _decode_fridge_limits,
+    ErdCode.TEMPERATURE_STATUS: _decode_fridge_setpoint,
+    # Oven
     ErdCode.OVEN_CONFIGURATION: _decode_oven_configuration,
     ErdCode.OVEN_MODE_MIN_MAX_TEMP: _decode_oven_ranges,
-    ErdCode.TEMPERATURE_UNIT: _decode_measurement_unit,
     ErdCode.LOWER_OVEN_CURRENT_STATE: _decode_oven_state,
     ErdCode.LOWER_OVEN_AVAILABLE_COOK_MODES: _decode_cook_modes,
     ErdCode.LOWER_OVEN_COOK_MODE: _decode_oven_cook_mode,
     ErdCode.UPPER_OVEN_CURRENT_STATE: _decode_oven_state,
     ErdCode.UPPER_OVEN_AVAILABLE_COOK_MODES: _decode_cook_modes,
     ErdCode.UPPER_OVEN_COOK_MODE: _decode_oven_cook_mode,
+    ErdCode.WATER_FILTER_STATUS: _decode_filter_status,
 }
-
 # Encoders for all fields
 ERD_ENCODERS = {
     # Time spans
@@ -268,7 +497,12 @@ ERD_ENCODERS = {
     ErdCode.SABBATH_MODE: _encode_erd_bool,
 
     # Special handling
+    ErdCode.CLOCK_FORMAT: _encode_clock_format,
+    ErdCode.END_TONE: _encode_end_tone,
+    ErdCode.ICE_MAKER_CONTROL: _encode_ice_maker_control,
     ErdCode.LOWER_OVEN_COOK_MODE: _encode_oven_cook_mode,
-    ErdCode.UPPER_OVEN_COOK_MODE: _encode_oven_cook_mode,
+    ErdCode.SOUND_LEVEL: _encode_sound_level,
+    ErdCode.TEMPERATURE_STATUS: _encode_fridge_setpoint,
     ErdCode.TEMPERATURE_UNIT: _encode_measurement_unit,
+    ErdCode.UPPER_OVEN_COOK_MODE: _encode_oven_cook_mode,
 }

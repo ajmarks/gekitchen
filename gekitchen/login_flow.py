@@ -86,6 +86,12 @@ def get_mobile_device_token(session: requests.Session) -> str:
         raise GeAuthError(f'Failed to get a mobile device token: {results}')
 
 
+def get_wss_credentials(session: requests.Session) -> Dict:
+    """Get a mobile device token"""
+    r = session.get(f'{API_URL}/v1/websocket')
+    return r.json()
+
+
 def get_ge_token(session: requests.Session, mobile_device_token: str) -> str:
     """Get the GE token that we can use to get XMPP credentials"""
     params = {
@@ -110,7 +116,7 @@ def get_xmpp_credentials(ge_token: str) -> Dict:
     return r.json()
 
 
-def do_full_login_flow(username: str, password: str) -> Dict:
+def do_full_xmpp_flow(username: str, password: str) -> Dict:
     """Perform a complete login flow, returning XMPP credentials."""
     login_session = requests.session()
 
@@ -127,3 +133,16 @@ def do_full_login_flow(username: str, password: str) -> Dict:
     xmpp_credentials = get_xmpp_credentials(ge_token)
 
     return xmpp_credentials
+
+
+def do_full_wss_flow(username: str, password: str) -> Dict:
+    """Perform a complete login flow, returning WSS credentials."""
+    login_session = requests.session()
+
+    _LOGGER.debug('Getting oauth2 token')
+    get_oauth2_token(login_session, username, password)
+
+    _LOGGER.debug('Getting WSS credentials')
+    wss_credentials = get_wss_credentials(login_session)
+
+    return wss_credentials

@@ -11,3 +11,7 @@ class UnknownErdCode(ValueError, GeException):
 
 class GeAuthError(RuntimeError, GeException):
     """Failed to authenticate"""
+
+
+class GeNotAuthedError(RuntimeError, GeException):
+    """Not authenticated"""
