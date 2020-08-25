@@ -439,6 +439,7 @@ ERD_DECODERS = {
     ErdCode.TURBO_COOL_STATUS: _decode_erd_bool,
     ErdCode.ACM_UPDATING: _decode_erd_bool,
     ErdCode.APPLIANCE_UPDATING: _decode_erd_bool,
+    ErdCode.LCD_UPDATING: _decode_erd_bool,
 
     ###################################################################
     # Time spans
@@ -454,13 +455,15 @@ ERD_DECODERS = {
     ###################################################################
     # Special handling
     # Universal
-    ErdCode.APPLIANCE_SW_VERSION: _decode_sw_version,
-    ErdCode.APPLIANCE_SW_VERSION_AVAILABLE: _decode_sw_version,
     ErdCode.APPLIANCE_TYPE: _decode_appliance_type,
     ErdCode.CLOCK_FORMAT: _decode_clock_format,
     ErdCode.END_TONE: _decode_end_tone,
     ErdCode.SOUND_LEVEL: _decode_sound_level,
     ErdCode.TEMPERATURE_UNIT: _decode_measurement_unit,
+    ErdCode.APPLIANCE_SW_VERSION: _decode_sw_version,
+    ErdCode.APPLIANCE_SW_VERSION_AVAILABLE: _decode_sw_version,
+    ErdCode.LCD_SW_VERSION: _decode_sw_version,
+    ErdCode.LCD_SW_VERSION_AVAILABLE: _decode_sw_version,
     ErdCode.WIFI_MODULE_SW_VERSION: _decode_sw_version,
     ErdCode.WIFI_MODULE_SW_VERSION_AVAILABLE: _decode_sw_version,
 

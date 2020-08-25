@@ -282,7 +282,10 @@ class GeWebsocketClient(GeBaseClient):
     async def send_dict(self, msg_dict: Dict[str, Any]):
         """JSON encode a dictionary and send it."""
         payload = json.dumps(msg_dict)
-        await self.websocket.send(payload)
+        try:
+            await self.websocket.send(payload)
+        except websockets.ConnectionClosed:
+            _LOGGER.info("Tried to send a message, but connection already closed.")
 
     async def keep_alive(self, keepalive: int = 30):
         """Send periodic pings to keep the connection alive."""
