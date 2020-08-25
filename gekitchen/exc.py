@@ -15,3 +15,11 @@ class GeAuthError(RuntimeError, GeException):
 
 class GeNotAuthedError(RuntimeError, GeException):
     """Not authenticated"""
+
+
+class GeDisconnected(GeException):
+    """Disconnected"""
+
+
+class GeServerError(RuntimeError, GeException):
+    """Error connecting, but not 4xx"""

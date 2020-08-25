@@ -1,10 +1,9 @@
 """GE Kitchen Appliances SDK"""
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 
 from .async_login_flow import (
-    AbstractAuth,
     async_do_full_xmpp_flow,
     async_get_ge_token,
     async_get_mobile_device_token,

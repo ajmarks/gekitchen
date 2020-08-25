@@ -7,9 +7,8 @@ except ImportError:
     import re
 import logging
 import aiohttp
-from abc import ABC, abstractmethod
 from lxml import etree
-from gekitchen.const import (
+from .const import (
     API_URL,
     LOGIN_URL,
     OAUTH2_APP_ID,
@@ -17,7 +16,7 @@ from gekitchen.const import (
     OAUTH2_CLIENT_SECRET,
     OAUTH2_REDIRECT_URI,
 )
-from gekitchen.exc import GeAuthError
+from .exc import GeAuthError, GeServerError
 
 from typing import Dict
 from urllib.parse import urlparse, parse_qs
@@ -35,6 +34,10 @@ async def async_get_oauth2_token(session: aiohttp.ClientSession, username: str, 
     }
 
     async with session.get(f'{LOGIN_URL}/oauth2/auth', params=params) as resp:
+        if 400 <= resp.status < 500:
+            raise GeAuthError(await resp.text())
+        if resp.status >= 500:
+            raise GeServerError(await resp.text())
         resp_text = await resp.text()
 
     email_regex = (
@@ -53,6 +56,10 @@ async def async_get_oauth2_token(session: aiohttp.ClientSession, username: str, 
     post_data['password'] = password
 
     async with session.post(f'{LOGIN_URL}/oauth2/g_authenticate', data=post_data, allow_redirects=False) as resp:
+        if 400 <= resp.status < 500:
+            raise GeAuthError(await resp.text())
+        if resp.status >= 500:
+            raise GeServerError(await resp.text())
         code = parse_qs(urlparse(resp.headers['Location']).query)['code'][0]
 
     post_data = {
@@ -64,11 +71,14 @@ async def async_get_oauth2_token(session: aiohttp.ClientSession, username: str, 
     }
     auth = aiohttp.BasicAuth(OAUTH2_CLIENT_ID, OAUTH2_CLIENT_SECRET)
     async with session.post(f'{LOGIN_URL}/oauth2/token', data=post_data, auth=auth) as resp:
+        if 400 <= resp.status < 500:
+            raise GeAuthError(await resp.text())
+        if resp.status >= 500:
+            raise GeServerError(await resp.text())
         oauth_token = await resp.json()
     try:
         return {'Authorization': 'Bearer ' + oauth_token['access_token']}
     except KeyError:
-        # TODO: make this better
         raise GeAuthError(f'Failed to get a token: {oauth_token}')
 
 
@@ -79,8 +89,10 @@ async def async_get_mobile_device_token(session: aiohttp.ClientSession, auth_hea
         'app': OAUTH2_APP_ID,
         'os': 'google_android'
     }
-    async with session.post(f'{API_URL}/v1/mdt', json=mdt_data, headers=auth_header) as r:
-        results = await r.json()
+    async with session.post(f'{API_URL}/v1/mdt', json=mdt_data, headers=auth_header) as resp:
+        if resp.status != 200:
+            raise GeAuthError(await resp.text())
+        results = await resp.json()
 
     try:
         return results['mdt']
@@ -95,8 +107,13 @@ async def async_get_ge_token(session: aiohttp.ClientSession, auth_header: Dict, 
         'client_secret': OAUTH2_CLIENT_SECRET,
         'mdt': mobile_device_token
     }
-    async with session.post(f'{LOGIN_URL}/oauth2/getoken', params=params, headers=auth_header) as r:
-        results = await r.json()
+    async with session.post(f'{LOGIN_URL}/oauth2/getoken', params=params, headers=auth_header) as resp:
+        if 400 <= resp.status < 500:
+            raise GeAuthError(await resp.text())
+        if resp.status >= 500:
+            raise GeServerError(await resp.text())
+        results = await resp.json()
+
     try:
         return results['access_token']
     except KeyError:
@@ -107,15 +124,23 @@ async def async_get_xmpp_credentials(session: aiohttp.ClientSession, ge_token: s
     """Get XMPP credentials"""
     uri = f'{API_URL}/v1/mdt/credentials'
     headers = {'Authorization': f'Bearer {ge_token}'}
-    async with session.get(uri, headers=headers) as r:
-        return await r.json()
+    async with session.get(uri, headers=headers) as resp:
+        if 400 <= resp.status < 500:
+            raise GeAuthError(await resp.text())
+        if resp.status >= 500:
+            raise GeServerError(await resp.text())
+        return await resp.json()
 
 
 async def async_get_wss_credentials(session: aiohttp.ClientSession, auth_header: Dict) -> Dict:
     """Get WSS credentials"""
     uri = f'{API_URL}/v1/websocket'
-    async with session.get(uri, headers=auth_header) as r:
-        return await r.json()
+    async with session.get(uri, headers=auth_header) as resp:
+        if 400 <= resp.status < 500:
+            raise GeAuthError(await resp.text())
+        if resp.status >= 500:
+            raise GeServerError(await resp.text())
+        return await resp.json()
 
 
 async def async_do_full_xmpp_flow(session: aiohttp.ClientSession, username: str, password: str) -> Dict:
@@ -146,32 +171,3 @@ async def async_do_full_wss_flow(session: aiohttp.ClientSession, username: str, 
     wss_credentials = await async_get_wss_credentials(session, auth_header)
 
     return wss_credentials
-
-
-class AbstractAuth(ABC):
-    """Abstract class to make authenticated requests."""
-
-    def __init__(self, websession: aiohttp.ClientSession):
-        """Initialize the auth."""
-        self.websession = websession
-
-    @abstractmethod
-    async def async_get_access_token(self) -> str:
-        """Return a valid access token."""
-
-    async def request(self, method, url, **kwargs) -> aiohttp.ClientResponse:
-        """Make a request."""
-        headers = kwargs.get("headers")
-
-        if headers is None:
-            headers = {}
-        else:
-            headers = dict(headers)
-
-        access_token = await self.async_get_access_token()
-        headers["authorization"] = f"Bearer {access_token}"
-
-        return await self.websession.request(
-            method, url, **kwargs, headers=headers,
-        )
-

@@ -10,7 +10,13 @@ from .base_client import GeBaseClient
 
 from ..async_login_flow import async_do_full_wss_flow
 from ..exc import GeNotAuthedError
-from ..const import API_URL, EVENT_ADD_APPLIANCE, EVENT_APPLIANCE_STATE_CHANGE, EVENT_GOT_APPLIANCE_LIST
+from ..const import (
+    API_URL,
+    EVENT_ADD_APPLIANCE,
+    EVENT_APPLIANCE_STATE_CHANGE,
+    EVENT_DISCONNECTED,
+    EVENT_GOT_APPLIANCE_LIST,
+)
 from ..erd_constants import ErdCode
 from ..erd_utils import ErdCodeType
 from ..ge_appliance import GeAppliance
@@ -243,9 +249,11 @@ class GeWebsocketClient(GeBaseClient):
 
     async def disconnect(self):
         """Disconnect and cleanup."""
+        _LOGGER.info("Disconnecting")
         if self._keepalive_fut is not None:
             self._keepalive_fut.set_result(True)
         await self.websocket.close()
+        await self.async_event(EVENT_DISCONNECTED, self._socket)
 
     async def async_get_credentials_and_run(
             self, session: ClientSession, username: Optional[str] = None, password: Optional[str] = None,
@@ -267,7 +275,8 @@ class GeWebsocketClient(GeBaseClient):
             await self.get_appliance_list()
             async for message in socket:
                 await self.process_message(message)
-        self._socket = None
+        _LOGGER.info("Disconnected")
+        await self.async_event(EVENT_DISCONNECTED, None)
 
     async def send_dict(self, msg_dict: Dict[str, Any]):
         """JSON encode a dictionary and send it."""
