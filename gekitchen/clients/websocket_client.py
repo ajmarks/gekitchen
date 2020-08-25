@@ -112,8 +112,9 @@ class GeWebsocketClient(GeBaseClient):
         raw_erd_code = id_parts[2]
         erd_value = self._pending_erds.get((mac_addr, raw_erd_code))
         if erd_value is not None:
+            _LOGGER.debug(f"")
             try:
-                self.appliances[mac_addr].update_erd_value(raw_erd_code, erd_value)
+                await self._update_appliance_state(mac_addr, {raw_erd_code: erd_value})
             except KeyError:
                 pass
 
@@ -127,9 +128,9 @@ class GeWebsocketClient(GeBaseClient):
         except KeyError:
             return
 
-        if kind == "publish#erd":
+        if kind.lower() == "publish#erd":
             await self.process_erd_update(message_dict)
-        elif kind == "websocket#api":
+        elif kind.lower() == "websocket#api":
             try:
                 message_id = message_dict["id"]
             except KeyError:
