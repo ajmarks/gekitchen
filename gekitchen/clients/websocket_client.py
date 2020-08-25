@@ -329,7 +329,7 @@ class GeWebsocketClient(GeBaseClient):
         msg_dict = {
             "kind": "websocket#api",
             "action": "api",
-            "host": API_URL,
+            "host": API_HOST,
             "method": "POST",
             "path": f"/v1/appliance/{mac_addr}/erd/{raw_erd_code}",
             "id": f"{mac_addr}-{SET_ERD}-{raw_erd_code}",
