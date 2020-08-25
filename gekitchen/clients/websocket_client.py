@@ -250,8 +250,6 @@ class GeWebsocketClient(GeBaseClient):
     async def disconnect(self):
         """Disconnect and cleanup."""
         _LOGGER.info("Disconnecting")
-        if self._keepalive_fut is not None:
-            self._keepalive_fut.set_result(True)
         await self.websocket.close()
         await self.async_event(EVENT_DISCONNECTED, self._socket)
 
@@ -276,6 +274,8 @@ class GeWebsocketClient(GeBaseClient):
             async for message in socket:
                 await self.process_message(message)
         _LOGGER.info("Disconnected")
+        if self._keepalive_fut is not None:
+            self._keepalive_fut.cancel()
         await self.async_event(EVENT_DISCONNECTED, None)
 
     async def send_dict(self, msg_dict: Dict[str, Any]):
