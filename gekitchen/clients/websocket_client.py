@@ -104,7 +104,7 @@ class GeWebsocketClient(GeBaseClient):
     def websocket(self):
         return self._socket
 
-    def _process_pending_erd(self, message_id: str):
+    async def _process_pending_erd(self, message_id: str):
         id_parts = message_id.split("-")
         if id_parts[1] != SET_ERD:
             raise ValueError("Invalid message id")
@@ -138,7 +138,7 @@ class GeWebsocketClient(GeBaseClient):
             if message_id == LIST_APPLIANCES:
                 await self.process_appliance_list(message_dict)
             elif f"-{SET_ERD}-" in message_id and message_dict.get("code") == 200:
-                self._process_pending_erd(message_id)
+                await self._process_pending_erd(message_id)
             elif f"-{ALL_ERD}" in message_id and message_dict.get("code") == 200:
                 await self.process_cache_update(message_dict)
 
