@@ -118,6 +118,14 @@ class GeWebsocketClient(GeBaseClient):
             except KeyError:
                 pass
 
+    @staticmethod
+    async def _failed_set_erd(message_dict: dict):
+        """Failed to set an ERD value."""
+        body = message_dict.get("body", {})
+        message = body.get("message")
+        reason = body.get("reason")
+        _LOGGER.error(f"ERD update failure!\nMessage: {message}.\nReason: {reason}")
+
     async def process_message(self, message: str):
         """
         Process an incoming message.
@@ -139,6 +147,8 @@ class GeWebsocketClient(GeBaseClient):
                 await self.process_appliance_list(message_dict)
             elif f"-{SET_ERD}-" in message_id and message_dict.get("code") == 200:
                 await self._process_pending_erd(message_id)
+            elif f"-{SET_ERD}-" in message_id:
+                await self._failed_set_erd(message_dict)
             elif f"-{ALL_ERD}" in message_id and message_dict.get("code") == 200:
                 await self.process_cache_update(message_dict)
 
@@ -317,6 +327,7 @@ class GeWebsocketClient(GeBaseClient):
             raw_erd_code = erd_code.value
         else:
             raw_erd_code = erd_code
+        raw_erd_code = raw_erd_code.upper().replace("0X", "0x")
 
         mac_addr = appliance.mac_addr
 

@@ -427,6 +427,10 @@ ERD_DECODERS = {
     ErdCode.SERIAL_NUMBER: _decode_erd_string,
 
     ###################################################################
+    # Leave as raw bytes
+    ErdCode.HOT_WATER_SET_TEMP: decode_erd_bytes,
+
+    ###################################################################
     # Booleans
     ErdCode.CONVECTION_CONVERSION: _decode_erd_bool,
     ErdCode.HOUR_12_SHUTOFF_ENABLED: _decode_erd_bool,
