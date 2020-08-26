@@ -96,3 +96,6 @@ class ErdCode(enum.Enum):
 
     # Microwave
     MICROWAVE_RECIPE_STATUS = "0x5300"
+    # Lots more in 0x5Cxx
+
+    # Hood

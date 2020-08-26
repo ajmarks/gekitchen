@@ -499,6 +499,8 @@ ERD_ENCODERS = {
     # Booleans
     ErdCode.CONVECTION_CONVERSION: _encode_erd_bool,
     ErdCode.SABBATH_MODE: _encode_erd_bool,
+    ErdCode.TURBO_FREEZE_STATUS: _encode_erd_bool,
+    ErdCode.TURBO_COOL_STATUS: _encode_erd_bool,
 
     # Special handling
     ErdCode.CLOCK_FORMAT: _encode_clock_format,

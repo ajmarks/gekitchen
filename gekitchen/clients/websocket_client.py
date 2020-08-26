@@ -296,7 +296,7 @@ class GeWebsocketClient(GeBaseClient):
 
     async def subscribe_all(self):
         """Subscribe to all appliances."""
-        msg_dict = {"kind": "websocket#subscribe", "action": "subscribe", "resources": ["/appliance/*/erd/*"]}
+        msg_dict = {"kind": "websocket#subscribe", "action": "subscribe", "resources": ["/appliance/*"]}
         await self.send_dict(msg_dict)
 
     async def subscribe_appliances(self, appliances: List[GeAppliance]):
@@ -386,7 +386,7 @@ class GeWebsocketClient(GeBaseClient):
         if set_online:
             new_appliance.set_available()
 
-        _LOGGER.info(f'Adding appliance {mac_addr}')
+        _LOGGER.debug(f'Adding appliance {mac_addr}')
         self.appliances[mac_addr] = new_appliance
         await self.async_event(EVENT_ADD_APPLIANCE, new_appliance)
         await self.async_request_update(new_appliance)
