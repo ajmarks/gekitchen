@@ -58,7 +58,7 @@ class OvenCookMode(NamedTuple):
 
 class OvenCookSetting(NamedTuple):
     """Cleaner representation of ErdOvenCookMode"""
-    cook_mode: "ErdOvenCookMode"
+    cook_mode: OvenCookMode
     temperature: int
     raw_bytes: Optional[bytes] = None
 

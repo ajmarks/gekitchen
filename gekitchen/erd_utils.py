@@ -412,6 +412,7 @@ def _encode_clock_format(value: ErdClockFormat) -> str:
 ERD_DECODERS = {
     ###################################################################
     # Integers
+    ErdCode.HOT_WATER_SET_TEMP: decode_erd_int,
     ErdCode.LOWER_OVEN_DISPLAY_TEMPERATURE: decode_erd_int,
     ErdCode.LOWER_OVEN_PROBE_DISPLAY_TEMP: decode_erd_int,
     ErdCode.LOWER_OVEN_RAW_TEMPERATURE: decode_erd_int,
@@ -427,12 +428,9 @@ ERD_DECODERS = {
     ErdCode.SERIAL_NUMBER: _decode_erd_string,
 
     ###################################################################
-    # Leave as raw bytes
-    ErdCode.HOT_WATER_SET_TEMP: decode_erd_bytes,
-
-    ###################################################################
     # Booleans
     ErdCode.CONVECTION_CONVERSION: _decode_erd_bool,
+    ErdCode.HOT_WATER_IN_USE: _decode_erd_bool,
     ErdCode.HOUR_12_SHUTOFF_ENABLED: _decode_erd_bool,
     ErdCode.SABBATH_MODE: _decode_erd_bool,
     ErdCode.LOWER_OVEN_PROBE_PRESENT: _decode_erd_bool,
@@ -492,6 +490,9 @@ ERD_DECODERS = {
 }
 # Encoders for all fields
 ERD_ENCODERS = {
+    # Integers
+    ErdCode.HOT_WATER_SET_TEMP: _encode_erd_int,
+
     # Time spans
     ErdCode.LOWER_OVEN_COOK_TIME_REMAINING: _encode_timespan,
     ErdCode.LOWER_OVEN_DELAY_TIME_REMAINING: _encode_timespan,
