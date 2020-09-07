@@ -88,11 +88,15 @@ def _encode_erd_bytes(value: bytes) -> str:
     return value.hex('big')
 
 
-def _decode_erd_bool(value: str) -> bool:
+def _decode_erd_bool(value: str) -> Optional[bool]:
+    if value == "FF":
+        return None
     return bool(int(value))
 
 
-def _encode_erd_bool(value: bool) -> str:
+def _encode_erd_bool(value: Optional[bool]) -> str:
+    if value is None:
+        return "FF"
     return "01" if value else "00"
 
 
