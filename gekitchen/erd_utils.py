@@ -54,6 +54,7 @@ def encode_signed_byte(value: int) -> str:
     """
     Convert a hex byte to a signed int.  Copied from GE's hextodec method.
     """
+    value = int(value)
     if value < 0:
         value = value + 256
     return value.to_bytes(1, "big").hex()
@@ -61,6 +62,7 @@ def encode_signed_byte(value: int) -> str:
 
 def _encode_erd_int(value: int) -> str:
     """Encode an integer value as a hex string."""
+    value = int(value)
     return value.to_bytes(2, 'big').hex()
 
 
@@ -187,7 +189,7 @@ def _encode_oven_cook_mode(cook_setting: OvenCookSetting) -> str:
     cook_mode = cook_setting.cook_mode
     cook_mode_code = OVEN_COOK_MODE_MAP.inverse[cook_mode].value
     cook_mode_hex = cook_mode_code.to_bytes(1, 'big').hex()
-    temperature_hex = cook_setting.temperature.to_bytes(2, 'big').hex()
+    temperature_hex = int(cook_setting.temperature).to_bytes(2, 'big').hex()
     return cook_mode_hex + temperature_hex + ('00' * 10)
 
 
