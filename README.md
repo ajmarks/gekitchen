@@ -71,6 +71,10 @@ little about the appliance. The `GeAppliance` object is passed to the callback.
 state is received.  A tuple `(appliance, state_changes)` is passed to the callback, where `appliance` is the 
 `GeAppliance` object with the updated state and `state_changes` is a dictionary `{erd_key: new_value}` of the changed
 state.
+* `EVENT_CONNECTED` - Triggered when the API connects, after adding basic subscriptions
+* `EVENT_DISCONNECTED` - Triggered when the API disconnects
+* `EVENT_GOT_APPLIANCE_LIST` - Triggered when we get the list of appliances
+
 ### GeXmppClient(xmpp_credentials, event_loop=None, **kwargs)
 Main XMPP client, and a subclass of `slixmpp.ClientXMPP`.
  * `xmpp_credentials: dict` A dictionary of XMPP credentials, usually obtained from either `do_full_login_flow` or, in a

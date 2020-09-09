@@ -14,6 +14,7 @@ from ..const import (
     API_URL,
     EVENT_ADD_APPLIANCE,
     EVENT_APPLIANCE_STATE_CHANGE,
+    EVENT_CONNECTED,
     EVENT_DISCONNECTED,
     EVENT_GOT_APPLIANCE_LIST,
 )
@@ -282,6 +283,7 @@ class GeWebsocketClient(GeBaseClient):
             else:
                 await self.subscribe_appliances(appliances)
             await self.get_appliance_list()
+            await self.async_event(EVENT_CONNECTED, None)
             async for message in socket:
                 await self.process_message(message)
         _LOGGER.info("Disconnected")
