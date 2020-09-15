@@ -284,8 +284,11 @@ class GeWebsocketClient(GeBaseClient):
                 await self.subscribe_appliances(appliances)
             await self.get_appliance_list()
             await self.async_event(EVENT_CONNECTED, None)
-            async for message in socket:
-                await self.process_message(message)
+            try:
+                async for message in socket:
+                    await self.process_message(message)
+            except websockets.WebSocketException:
+                _LOGGER.error("Unknown error reading socket")
         _LOGGER.info("Disconnected")
         if self._keepalive_fut is not None:
             self._keepalive_fut.cancel()

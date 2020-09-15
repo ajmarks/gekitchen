@@ -38,14 +38,16 @@ class GeAppliance:
     def __new__(cls, mac_addr: Union[str, JID], client: "GeBaseClient", *args, **kwargs):
         if isinstance(mac_addr, JID):
             mac_addr = str(mac_addr.user).split('_')[0]
-        obj = cls._appliance_cache.get(mac_addr)  # type: Optional["GeAppliance"]
-        if obj is not None:
-            if client.client_priority > obj.client.client_priority:
-                obj.client = client
+        try:
+            obj = cls._appliance_cache[mac_addr]  # type: "GeAppliance"
+        except KeyError:
+            obj = super(GeAppliance, cls).__new__(cls, mac_addr, client, *args, **kwargs)
+            obj.__init__(mac_addr, client)
+            cls._appliance_cache[obj.mac_addr] = obj
             return obj
-        obj = super(GeAppliance, cls).__new__(cls)
-        obj.__init__(mac_addr, client)
-        cls._appliance_cache[obj.mac_addr] = obj
+        else:
+            if client.client_priority >= obj.client.client_priority:
+                obj.client = client
         return obj
 
     def __init__(self, mac_addr: Union[str, JID], client: "GeBaseClient"):
