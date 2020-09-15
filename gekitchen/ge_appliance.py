@@ -41,7 +41,7 @@ class GeAppliance:
         try:
             obj = cls._appliance_cache[mac_addr]  # type: "GeAppliance"
         except KeyError:
-            obj = super(GeAppliance, cls).__new__(cls, mac_addr, client, *args, **kwargs)
+            obj = super(GeAppliance, cls).__new__(cls)
             obj.__init__(mac_addr, client)
             cls._appliance_cache[obj.mac_addr] = obj
             return obj
