@@ -14,6 +14,7 @@ from ..const import (
     API_URL,
     EVENT_ADD_APPLIANCE,
     EVENT_APPLIANCE_STATE_CHANGE,
+    EVENT_APPLIANCE_UPDATE_RECEIVED,
     EVENT_CONNECTED,
     EVENT_DISCONNECTED,
     EVENT_GOT_APPLIANCE_LIST,
@@ -258,6 +259,7 @@ class GeWebsocketClient(GeBaseClient):
         state_changes = appliance.update_erd_values(updates)
         if state_changes:
             await self.async_event(EVENT_APPLIANCE_STATE_CHANGE, [appliance, state_changes])
+        await self.async_event(EVENT_APPLIANCE_UPDATE_RECEIVED, updates)
 
     async def disconnect(self):
         """Disconnect and cleanup."""

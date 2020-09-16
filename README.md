@@ -71,6 +71,7 @@ little about the appliance. The `GeAppliance` object is passed to the callback.
 state is received.  A tuple `(appliance, state_changes)` is passed to the callback, where `appliance` is the 
 `GeAppliance` object with the updated state and `state_changes` is a dictionary `{erd_key: new_value}` of the changed
 state.
+* `EVENT_APPLIANCE_UPDATE_RECEIVED` - Triggered after processing an ERD update message whether or not the state changed
 * `EVENT_CONNECTED` - Triggered when the API connects, after adding basic subscriptions
 * `EVENT_DISCONNECTED` - Triggered when the API disconnects
 * `EVENT_GOT_APPLIANCE_LIST` - Triggered when we get the list of appliances
