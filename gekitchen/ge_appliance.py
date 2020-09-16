@@ -1,4 +1,4 @@
-"""Classes to implement GE appliances"""
+"""Data model for GE kitchen appliances"""
 
 import logging
 from weakref import WeakValueDictionary

@@ -311,7 +311,7 @@ class GeWebsocketClient(GeBaseClient):
 
     async def subscribe_all(self):
         """Subscribe to all appliances."""
-        msg_dict = {"kind": "websocket#subscribe", "action": "subscribe", "resources": ["/appliance/*"]}
+        msg_dict = {"kind": "websocket#subscribe", "action": "subscribe", "resources": ["/appliance/*/erd/*"]}
         await self.send_dict(msg_dict)
 
     async def subscribe_appliances(self, appliances: List[GeAppliance]):
