@@ -66,9 +66,9 @@ def _encode_erd_int(value: int) -> str:
     return value.to_bytes(2, 'big').hex()
 
 
-def _decode_erd_string(value: str) -> str:
+def _decode_erd_serial_model(value: str) -> str:
     """
-    Decode an string value sent as a hex encoded string.
+    Decode a serial/model number string value sent as a hex encoded string.
 
     TODO: I think the first byte is a checksum.  I need to confirm this so we can have an encoder as well.
     """
@@ -76,6 +76,18 @@ def _decode_erd_string(value: str) -> str:
     raw_bytes = raw_bytes.rstrip(b'\x00')
 
     return raw_bytes[1:].decode('ascii')
+
+def _decode_erd_string(value: str) -> str:
+    """
+    Decode an string value sent as a hex encoded string.
+
+    TODO: At least for the dishwasher cycle the first character is not a check sum
+    are there potentially different decoding methods needed?
+    """
+    raw_bytes = bytes.fromhex(value)
+    raw_bytes = raw_bytes.rstrip(b'\x00')
+
+    return raw_bytes.decode('ascii')
 
 
 def decode_erd_bytes(value: str) -> bytes:
@@ -461,8 +473,8 @@ ERD_DECODERS = {
     ###################################################################
     # Strings
     #Universal
-    ErdCode.MODEL_NUMBER: _decode_erd_string,
-    ErdCode.SERIAL_NUMBER: _decode_erd_string,
+    ErdCode.MODEL_NUMBER: _decode_erd_serial_model,
+    ErdCode.SERIAL_NUMBER: _decode_erd_serial_model,
     #Dishwasher
     ErdCode.CYCLE_NAME: _decode_erd_string,
 
