@@ -373,6 +373,32 @@ def _decode_filter_status(value: str) -> ErdFilterStatus:
     except ValueError:
         return ErdFilterStatus.NA
 
+def _decode_operating_cycle(value: str) -> ErdOperatingState:
+    """Decode the dishwasher operating state """
+    try:
+        return ErdOperatingState(value)
+    except ValueError:
+        return ErdOperatingState.NA
+
+def _decode_cycle_state(value: str) -> ErdCycleState:
+    """ Decodes the dishwasher cycle state """    
+    try:
+        raw = ErdCycleStateRaw(value)
+        return CYCLE_STATE_RAW_MAP[raw]
+    except ValueError:
+        return ErdCycleState.NA
+    except KeyError:
+        return ErdCycleState.NA
+
+def _decode_rinse_agent(value: str) -> ErdRinseAgent:
+    """ Decodes the dishwasher rinse agent status """
+    try:
+        raw = ErdRinseAgentRaw(value)
+        return RINSE_AGENT_RAW_MAP[raw]
+    except ValueError:
+        return ErdRinseAgent.NA
+    except KeyError:
+        return ErdRinseAgent.NA
 
 def _decode_sw_version(value: str) -> str:
     """
@@ -418,7 +444,9 @@ def _encode_clock_format(value: ErdClockFormat) -> str:
 ERD_DECODERS = {
     ###################################################################
     # Integers
+    # Fridge
     ErdCode.HOT_WATER_SET_TEMP: decode_erd_int,
+    # Oven
     ErdCode.LOWER_OVEN_DISPLAY_TEMPERATURE: decode_erd_int,
     ErdCode.LOWER_OVEN_PROBE_DISPLAY_TEMP: decode_erd_int,
     ErdCode.LOWER_OVEN_RAW_TEMPERATURE: decode_erd_int,
@@ -427,30 +455,40 @@ ERD_DECODERS = {
     ErdCode.UPPER_OVEN_PROBE_DISPLAY_TEMP: decode_erd_int,
     ErdCode.UPPER_OVEN_RAW_TEMPERATURE: decode_erd_int,
     ErdCode.UPPER_OVEN_USER_TEMP_OFFSET: decode_erd_int,
+    # Dishwasher
+    ErdCode.PODS_REMAINING_VALUE: decode_erd_int,
 
     ###################################################################
     # Strings
+    #Universal
     ErdCode.MODEL_NUMBER: _decode_erd_string,
     ErdCode.SERIAL_NUMBER: _decode_erd_string,
+    #Dishwasher
+    ErdCode.CYCLE_NAME: _decode_erd_string,
 
     ###################################################################
     # Booleans
-    ErdCode.CONVECTION_CONVERSION: _decode_erd_bool,
-    ErdCode.HOT_WATER_IN_USE: _decode_erd_bool,
-    ErdCode.HOUR_12_SHUTOFF_ENABLED: _decode_erd_bool,
+
+    # Universal
     ErdCode.SABBATH_MODE: _decode_erd_bool,
+    ErdCode.ACM_UPDATING: _decode_erd_bool,
+    ErdCode.APPLIANCE_UPDATING: _decode_erd_bool,
+    ErdCode.LCD_UPDATING: _decode_erd_bool,
+    # Fridge    
+    ErdCode.HOT_WATER_IN_USE: _decode_erd_bool,
+    # Oven
+    ErdCode.CONVECTION_CONVERSION: _decode_erd_bool,
+    ErdCode.HOUR_12_SHUTOFF_ENABLED: _decode_erd_bool,
     ErdCode.LOWER_OVEN_PROBE_PRESENT: _decode_erd_bool,
     ErdCode.LOWER_OVEN_REMOTE_ENABLED: _decode_erd_bool,
     ErdCode.UPPER_OVEN_PROBE_PRESENT: _decode_erd_bool,
     ErdCode.UPPER_OVEN_REMOTE_ENABLED: _decode_erd_bool,
     ErdCode.TURBO_FREEZE_STATUS: _decode_erd_bool,
     ErdCode.TURBO_COOL_STATUS: _decode_erd_bool,
-    ErdCode.ACM_UPDATING: _decode_erd_bool,
-    ErdCode.APPLIANCE_UPDATING: _decode_erd_bool,
-    ErdCode.LCD_UPDATING: _decode_erd_bool,
 
     ###################################################################
     # Time spans
+    # Oven
     ErdCode.LOWER_OVEN_COOK_TIME_REMAINING: _decode_timespan,
     ErdCode.LOWER_OVEN_DELAY_TIME_REMAINING: _decode_timespan,
     ErdCode.LOWER_OVEN_ELAPSED_COOK_TIME: _decode_timespan,
@@ -459,6 +497,8 @@ ERD_DECODERS = {
     ErdCode.UPPER_OVEN_DELAY_TIME_REMAINING: _decode_timespan,
     ErdCode.UPPER_OVEN_ELAPSED_COOK_TIME: _decode_timespan,
     ErdCode.UPPER_OVEN_KITCHEN_TIMER: _decode_timespan,
+    # Dishwasher
+    ErdCode.TIME_REMAINING: _decode_timespan,
 
     ###################################################################
     # Special handling
@@ -493,6 +533,10 @@ ERD_DECODERS = {
     ErdCode.UPPER_OVEN_AVAILABLE_COOK_MODES: _decode_cook_modes,
     ErdCode.UPPER_OVEN_COOK_MODE: _decode_oven_cook_mode,
     ErdCode.WATER_FILTER_STATUS: _decode_filter_status,
+    # Dishwasher
+    ErdCode.CYCLE_STATE: _decode_cycle_state,
+    ErdCode.OPERATING_MODE: _decode_operating_cycle,
+    ErdCode.RINSE_AGENT: _decode_rinse_agent,
 }
 # Encoders for all fields
 ERD_ENCODERS = {
