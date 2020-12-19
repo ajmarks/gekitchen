@@ -12,7 +12,7 @@ from .erd_utils import (
     decode_erd_int,
     translate_erd_code,
 )
-from .erd_constants import ErdApplianceType, ErdCode
+from .erd import ErdApplianceType, ErdCode
 
 if TYPE_CHECKING:
     from .clients import GeBaseClient

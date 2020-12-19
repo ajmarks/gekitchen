@@ -19,7 +19,7 @@ from ..const import (
     EVENT_DISCONNECTED,
     EVENT_GOT_APPLIANCE_LIST,
 )
-from ..erd_constants import ErdCode
+from ..erd import ErdCode
 from ..erd_utils import ErdCodeType
 from ..ge_appliance import GeAppliance
 from ..login_flow import do_full_wss_flow

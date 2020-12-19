@@ -6,7 +6,7 @@ import logging
 from aiohttp import ClientSession
 from typing import Any, Callable, Dict, Optional, Tuple
 from ..const import EVENT_APPLIANCE_INITIAL_UPDATE
-from ..erd_constants import ErdCode
+from ..erd.erd_codes import ErdCode
 from ..erd_utils import ErdCodeType
 from ..exc import GeNotAuthedError
 from ..ge_appliance import GeAppliance

@@ -4,8 +4,7 @@ import logging
 from datetime import timedelta
 from textwrap import wrap
 from typing import Optional, Set, Tuple, Union
-from .erd_constants import *
-from .erd_types import *
+from .erd import *
 
 ErdCodeType = Union[ErdCode, str]
 

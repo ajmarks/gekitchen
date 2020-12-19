@@ -1,64 +1,15 @@
-"""Constants for handling ERD values"""
-
 __all__ = (
-    "ErdApplianceType",
     "ErdAvailableCookMode",
-    "ErdClockFormat",
-    "ErdDoorStatus",
-    "ErdEndTone",
-    "ErdFilterStatus",
-    "ErdFullNotFull",
-    "ErdHotWaterStatus",
-    "ErdMeasurementUnits",
-    "ErdOnOff",
     "ErdOvenConfiguration",
     "ErdOvenCookMode",
     "ErdOvenState",
-    "ErdPodStatus",
-    "ErdPresent",
-    "ErdSoundLevel",
-    "OVEN_COOK_MODE_MAP",
+    "OVEN_COOK_MODE_MAP"
 )
 
 import enum
 import bidict
-from ..erd_types import AvailableCookMode, OvenCookMode
 
-
-@enum.unique
-class ErdApplianceType(enum.Enum):
-    UNKNOWN = "FF"
-    WATER_HEATER = "00"
-    DRYER = "01"
-    WASHER = "02"
-    FRIDGE = "03"
-    MICROWAVE = "04"
-    ADVANTIUM = "05"
-    DISH_WASHER = "06"
-    OVEN = "07"
-    ELECTRIC_RANGE = "08"
-    GAS_RANGE = "09"
-    AIR_CONDITIONER = "0a"
-    ELECTRIC_COOKTOP = "0b"
-    COOKTOP = "11"
-    PIZZA_OVEN = "0c"
-    GAS_COOKTOP = "0d"
-    SPLIT_AIR_CONDITIONER = "0e"
-    HOOD = "0f"
-    POE_WATER_FILTER = "10"
-    WATER_SOFTENER = "15"
-    PORTABLE_AIR_CONDITIONER = "16"
-    COMBINATION_WASHER_DRYER = "17"
-    ZONELINE = "14"
-    DELEVERY_BOX = "12"
-    CAFE_COFFEE_MAKER = "1A"
-
-
-@enum.unique
-class ErdMeasurementUnits(enum.Enum):
-    IMPERIAL = 0
-    METRIC = 1
-
+from gekitchen.erd.types import AvailableCookMode, OvenCookMode
 
 @enum.unique
 class ErdOvenCookMode(enum.Enum):
@@ -124,7 +75,6 @@ class ErdOvenCookMode(enum.Enum):
     WARM_NOOPTION = 15
     WARM_PROBE = 16
 
-
 @enum.unique
 class ErdAvailableCookMode(enum.Enum):
     """
@@ -143,7 +93,6 @@ class ErdAvailableCookMode(enum.Enum):
     OVEN_FROZEN_PIZZA_MULTI = AvailableCookMode(byte=2, mask=8, cook_mode=ErdOvenCookMode.FROZEN_PIZZA_MULTI)
     OVEN_BAKED_GOODS = AvailableCookMode(byte=2, mask=16, cook_mode=ErdOvenCookMode.BAKED_GOODS)
 
-
 @enum.unique
 class ErdOvenConfiguration(enum.Enum):
     """Representation of oven configurations."""
@@ -152,7 +101,6 @@ class ErdOvenConfiguration(enum.Enum):
     HAS_LIGHT_BAR = 4
     HAS_LOWER_OVEN = 8
     HAS_LOWER_OVEN_KITCHEN_TIMER = 16
-
 
 @enum.unique
 class ErdOvenState(enum.Enum):
@@ -209,7 +157,6 @@ class ErdOvenState(enum.Enum):
     OVEN_STATE_STEAM_START = "oven_state_steam_start"
     OVEN_STATE_WARM = "oven_state_warm"
     STATUS_DASH = "status_dash"
-
 
 # Translate OVEN_COOK_MODE values into something easier to work with
 OVEN_COOK_MODE_MAP = bidict.bidict({
@@ -274,81 +221,3 @@ OVEN_COOK_MODE_MAP = bidict.bidict({
     ErdOvenCookMode.WARM_NOOPTION: OvenCookMode(ErdOvenState.WARM, False, False, False),
     ErdOvenCookMode.WARM_PROBE: OvenCookMode(ErdOvenState.WARM, False, False, True),
 })
-
-
-@enum.unique
-class ErdFullNotFull(enum.Enum):
-    FULL = "01"
-    NOT_FULL = "00"
-    NA = "NA"
-
-
-@enum.unique
-class ErdDoorStatus(enum.Enum):
-    """Fridge door status"""
-    CLOSED = "00"
-    OPEN = "01"
-    NA = "FF"
-
-
-@enum.unique
-class ErdOnOff(enum.Enum):
-    ON = "01"
-    OFF = "00"
-    NA = "FF"
-
-
-@enum.unique
-class ErdPresent(enum.Enum):
-    PRESENT = "01"
-    NOT_PRESENT = "00"
-    NA = "FF"
-
-
-@enum.unique
-class ErdHotWaterStatus(enum.Enum):
-    NOT_HEATING = "00"
-    HEATING = "01"
-    READY = "02"
-    FAULT_NEED_CLEARED = "FD"
-    FAULT_LOCKED_OUT = "FE"
-    NA = "NA"
-
-
-@enum.unique
-class ErdPodStatus(enum.Enum):
-    REPLACE = "00"
-    READY = "01"
-    NA = "FF"
-
-
-@enum.unique
-class ErdFilterStatus(enum.Enum):
-    GOOD = "00"
-    REPLACE = "01"
-    EXPIRED = "02"
-    UNFILTERED = "03"
-    LEAK_DETECTED = "04"
-    NA = "FF"
-
-
-@enum.unique
-class ErdEndTone(enum.Enum):
-    BEEP = "00"
-    REPEATED_BEEP = "01"
-    NA = "FF"
-
-
-@enum.unique
-class ErdSoundLevel(enum.Enum):
-    OFF = 0
-    LOW = 1
-    STANDARD = 2
-    HIGH = 3
-
-
-@enum.unique
-class ErdClockFormat(enum.Enum):
-    TWELVE_HOUR = "00"
-    TWENTY_FOUR_HOUR = "01"
-    NO_DISPLAY = "02"
