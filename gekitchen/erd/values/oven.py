@@ -1,15 +1,21 @@
 __all__ = (
-    "ErdAvailableCookMode",
-    "ErdOvenConfiguration",
-    "ErdOvenCookMode",
-    "ErdOvenState",
-    "OVEN_COOK_MODE_MAP"
+    'ErdAvailableCookMode',
+    'ErdOvenConfiguration',
+    'ErdOvenCookMode',
+    'ErdOvenState',
+    'AvailableCookMode',
+    'OvenConfiguration',
+    'OvenCookMode',
+    'OvenCookSetting',
+    'OvenRanges',
+    'OVEN_COOK_MODE_MAP'
 )
 
 import enum
 import bidict
 
-from gekitchen.erd.types import AvailableCookMode, OvenCookMode
+from datetime import timedelta
+from typing import NamedTuple, Optional, TYPE_CHECKING
 
 @enum.unique
 class ErdOvenCookMode(enum.Enum):
@@ -75,6 +81,12 @@ class ErdOvenCookMode(enum.Enum):
     WARM_NOOPTION = 15
     WARM_PROBE = 16
 
+class AvailableCookMode(NamedTuple):
+    """Parsing helper for Available Cook Modes"""
+    byte: int
+    mask: int
+    cook_mode: ErdOvenCookMode
+
 @enum.unique
 class ErdAvailableCookMode(enum.Enum):
     """
@@ -101,6 +113,19 @@ class ErdOvenConfiguration(enum.Enum):
     HAS_LIGHT_BAR = 4
     HAS_LOWER_OVEN = 8
     HAS_LOWER_OVEN_KITCHEN_TIMER = 16
+
+class OvenConfiguration(NamedTuple):
+    """Cleaner representation of ErdOvenConfiguration"""
+    has_knob: bool
+    has_warming_drawer: bool
+    has_light_bar: bool
+    has_lower_oven: bool
+    has_lower_oven_kitchen_timer: bool
+    raw_value: Optional[str] = None
+
+class OvenRanges(NamedTuple):
+    lower: int
+    upper: int
 
 @enum.unique
 class ErdOvenState(enum.Enum):
@@ -157,6 +182,21 @@ class ErdOvenState(enum.Enum):
     OVEN_STATE_STEAM_START = "oven_state_steam_start"
     OVEN_STATE_WARM = "oven_state_warm"
     STATUS_DASH = "status_dash"
+
+class OvenCookMode(NamedTuple):
+    """Named tuple to represent ErdOvenCookMode for easier formatting later"""
+    oven_state: ErdOvenState
+    delayed: bool = False
+    timed: bool = False
+    probe: bool = False
+    warm: bool = False
+    sabbath: bool = False
+
+class OvenCookSetting(NamedTuple):
+    """Cleaner representation of ErdOvenCookMode"""
+    cook_mode: OvenCookMode
+    temperature: int
+    raw_bytes: Optional[bytes] = None
 
 # Translate OVEN_COOK_MODE values into something easier to work with
 OVEN_COOK_MODE_MAP = bidict.bidict({

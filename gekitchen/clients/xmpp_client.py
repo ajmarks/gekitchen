@@ -11,8 +11,7 @@ from ..const import (
     EVENT_APPLIANCE_STATE_CHANGE,
 )
 from ..async_login_flow import async_do_full_xmpp_flow
-from ..erd_constants import ErdCode
-from ..erd_utils import ErdCodeType
+from ..erd import ErdCode, ErdCodeType
 from ..ge_appliance import GeAppliance
 from .base_client import GeBaseClient
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, Callable

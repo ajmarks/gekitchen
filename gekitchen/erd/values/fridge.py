@@ -1,4 +1,4 @@
-"""Constants for handling ERD values - fridge"""
+"""Constants for handling fridge ERD values"""
 
 __all__ = (
     "ErdDoorStatus",
@@ -6,9 +6,18 @@ __all__ = (
     "ErdFullNotFull",
     "ErdHotWaterStatus",
     "ErdPodStatus",
+    'FridgeDoorStatus',
+    'FridgeIceBucketStatus',
+    'FridgeSetPointLimits',
+    'FridgeSetPoints',
+    'HotWaterStatus',
+    'IceMakerControlStatus',
 )
 
 import enum
+from datetime import timedelta
+from typing import NamedTuple, Optional
+from .common import ErdPresent, ErdOnOff
 
 @enum.unique
 class ErdFullNotFull(enum.Enum):
@@ -46,3 +55,39 @@ class ErdFilterStatus(enum.Enum):
     UNFILTERED = "03"
     LEAK_DETECTED = "04"
     NA = "FF"
+class FridgeIceBucketStatus(NamedTuple):
+    state_full_fridge: ErdFullNotFull
+    state_full_freezer: ErdFullNotFull
+    is_present_fridge: bool
+    is_present_freezer: bool
+    total_status: ErdFullNotFull
+   
+class IceMakerControlStatus(NamedTuple):
+    status_fridge: ErdOnOff
+    status_freezer: ErdOnOff
+
+class FridgeDoorStatus(NamedTuple):
+    fridge_right: ErdDoorStatus
+    fridge_left: ErdDoorStatus
+    freezer: ErdDoorStatus
+    drawer: ErdDoorStatus
+    status: str
+
+class FridgeSetPointLimits(NamedTuple):
+    fridge_min: int
+    fridge_max: int
+    freezer_min: int
+    freezer_max: int
+
+class FridgeSetPoints(NamedTuple):
+    fridge: int
+    freezer: int
+
+class HotWaterStatus(NamedTuple):
+    status: ErdHotWaterStatus
+    time_until_ready: Optional[timedelta]
+    current_temp: Optional[int]
+    tank_full: ErdFullNotFull
+    brew_module: ErdPresent
+    pod_status: ErdPodStatus
+

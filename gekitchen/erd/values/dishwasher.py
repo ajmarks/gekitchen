@@ -5,9 +5,7 @@ __all__ = (
     "ErdCycleState",
     "ErdOperatingState",
     "ErdRinseAgentRaw",
-    "ErdRinseAgent",
-    "CYCLE_STATE_RAW_MAP",
-    "RINSE_AGENT_RAW_MAP"        
+    "ErdRinseAgent"
 )
 
 import enum
@@ -76,30 +74,3 @@ class ErdRinseAgent(enum.Enum):
     NA = "FF"
     RINSE_AGENT_GOOD = "00"
     RINSE_AGENT_LOW = "01"
-
-CYCLE_STATE_RAW_MAP = {
-    ErdCycleStateRaw.STATE_01: ErdCycleState.PRE_WASH,
-    ErdCycleStateRaw.STATE_02: ErdCycleState.PRE_WASH,
-    ErdCycleStateRaw.STATE_03: ErdCycleState.PRE_WASH,
-    ErdCycleStateRaw.STATE_04: ErdCycleState.PRE_WASH,
-    ErdCycleStateRaw.STATE_05: ErdCycleState.PRE_WASH,
-    ErdCycleStateRaw.STATE_06: ErdCycleState.PRE_WASH,
-    ErdCycleStateRaw.STATE_07: ErdCycleState.SENSING,
-    ErdCycleStateRaw.STATE_08: ErdCycleState.MAIN_WASH,
-    ErdCycleStateRaw.STATE_09: ErdCycleState.MAIN_WASH,
-    ErdCycleStateRaw.STATE_10: ErdCycleState.DRYING,
-    ErdCycleStateRaw.STATE_11: ErdCycleState.SANITIZING,
-    ErdCycleStateRaw.STATE_12: ErdCycleState.RINSING,
-    ErdCycleStateRaw.STATE_13: ErdCycleState.RINSING,
-    ErdCycleStateRaw.STATE_14: ErdCycleState.RINSING,
-    ErdCycleStateRaw.STATE_15: ErdCycleState.RINSING,
-    ErdCycleStateRaw.STATE_16: ErdCycleState.PAUSE,
-    ErdCycleStateRaw.STATE_17: ErdCycleState.NA,
-    ErdCycleStateRaw.STATE_18: ErdCycleState.NA
-}
-
-RINSE_AGENT_RAW_MAP = {
-    ErdRinseAgentRaw.RINSE_AGENT_GOOD: ErdRinseAgent.RINSE_AGENT_GOOD,
-    ErdRinseAgentRaw.RINSE_AGENT_LOW1: ErdRinseAgent.RINSE_AGENT_LOW,
-    ErdRinseAgentRaw.RINSE_AGENT_LOW2: ErdRinseAgent.RINSE_AGENT_LOW
-}
