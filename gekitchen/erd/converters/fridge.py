@@ -11,12 +11,11 @@ __all__ = (
 )
 
 from .abstract import ErdReadOnlyConverter, ErdValueConverter
-from .base_types import *
+from .primitives import *
 from gekitchen.erd.values.fridge import *
 
 class FridgeIceBucketStatusConverter(ErdReadOnlyConverter[FridgeIceBucketStatus]):
-    @staticmethod
-    def erd_decode(value: str):
+    def erd_decode(self, value: str) -> FridgeIceBucketStatus:
         """Decode Ice bucket status"""
         if not value:
             n = 0
@@ -52,8 +51,7 @@ class FridgeIceBucketStatusConverter(ErdReadOnlyConverter[FridgeIceBucketStatus]
         return ice_status
 
 class IceMakerControlStatusConverter(ErdValueConverter[IceMakerControlStatus]):
-    @staticmethod
-    def erd_decode(value: str):
+    def erd_decode(self, value: str) -> IceMakerControlStatus:
         def parse_status(val: str) -> ErdOnOff:
             try:
                 return ErdOnOff(val)
@@ -64,13 +62,11 @@ class IceMakerControlStatusConverter(ErdValueConverter[IceMakerControlStatus]):
         status_ff = parse_status(value[2:])
 
         return IceMakerControlStatus(status_fridge=status_ff, status_freezer=status_fz)
-    @staticmethod
-    def erd_encode(value: IceMakerControlStatus):
+    def erd_encode(self, value: IceMakerControlStatus):
         return value.status_freezer.value + value.status_fridge.value
 
 class FridgeDoorStatusConverter(ErdReadOnlyConverter[FridgeDoorStatus]):
-    @staticmethod
-    def erd_decode(value: str):
+    def erd_decode(self, value: str) -> FridgeDoorStatus:
         def get_door_status(val: str) -> ErdDoorStatus:
             try:
                 return ErdDoorStatus(val)
@@ -99,8 +95,7 @@ class FridgeDoorStatusConverter(ErdReadOnlyConverter[FridgeDoorStatus]):
         )
 
 class FridgeSetPointLimitsConverter(ErdReadOnlyConverter[FridgeSetPointLimits]):
-    @staticmethod
-    def erd_decode(value: str):
+    def erd_decode(self, value: str) -> FridgeSetPointLimits:
         return FridgeSetPointLimits(
             fridge_min=ErdSignedByteConverter.erd_decode(value[0:2]),
             fridge_max=ErdSignedByteConverter.erd_decode(value[2:4]),
@@ -109,8 +104,7 @@ class FridgeSetPointLimitsConverter(ErdReadOnlyConverter[FridgeSetPointLimits]):
         )
 
 class FridgeSetPointsConverter(ErdValueConverter[FridgeSetPoints]):
-    @staticmethod
-    def erd_decode(value: str):
+    def erd_decode(self, value: str) -> FridgeSetPoints:
         return FridgeSetPoints(
             fridge=ErdSignedByteConverter.erd_decode(value[0:2]),
             freezer=ErdSignedByteConverter.erd_decode(value[2:4]),
@@ -120,8 +114,7 @@ class FridgeSetPointsConverter(ErdValueConverter[FridgeSetPoints]):
         return ErdSignedByteConverter.erd_encode(value.fridge) + ErdSignedByteConverter.erd_encode(value.freezer)
 
 class HotWaterStatusConverter(ErdReadOnlyConverter[HotWaterStatus]):
-    @staticmethod
-    def erd_decode(value: str):
+    def erd_decode(self, value: str) -> HotWaterStatus:
         if not value:
             return HotWaterStatus(
                 status=ErdHotWaterStatus.NA,
@@ -164,8 +157,7 @@ class HotWaterStatusConverter(ErdReadOnlyConverter[HotWaterStatus]):
         )
 
 class ErdFilterStatusConverter(ErdReadOnlyConverter[ErdFilterStatus]):
-    @staticmethod
-    def erd_decode(value: str) -> ErdFilterStatus:
+    def erd_decode(self, value: str) -> ErdFilterStatus:
         """Decode water filter status.
 
         This appears to be 9 bytes, of which only the first two are obviously used. I suspect that the others

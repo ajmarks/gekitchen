@@ -5,7 +5,8 @@ from typing import Any, Dict, Optional, Set, Tuple, Union
 
 from .codes import ErdCode
 from .registry import _registry
-from .converters import ErdBytesConverter, ErdIntConverter
+from .converters import ErdValueConverter
+from .converters.primitives import *
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,12 +53,12 @@ class ErdSerializer:
         erd_code = self.translate_erd_code(erd_code)
 
         if isinstance(erd_code, str):
-            return ErdBytesConverter.erd_decode(erd_value)
+            return erd_decode_bytes(erd_value)
 
         try:
             return _registry[erd_code].erd_decode(erd_value)
         except KeyError:
-            return ErdIntConverter.erd_decode(erd_value)
+            return erd_decode_int(erd_value)
 
     def encode_erd_value(self, erd_code: ErdCodeType, value: Any) -> str:
         """

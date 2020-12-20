@@ -4,18 +4,15 @@ from typing import TypeVar, Generic, Optional
 T = TypeVar('T')
 
 class ErdValueConverter(Generic[T], ABC):
-    @staticmethod
     @abstractmethod
-    def erd_encode(value: T) -> str:
+    def erd_encode(self, value: T) -> str:
         pass
-    @staticmethod
     @abstractmethod
-    def erd_decode(value: str) -> T:
+    def erd_decode(self, value: str) -> T:
         pass
 
 class ErdReadOnlyConverter(ErdValueConverter[T]):
-    @staticmethod
-    def erd_encode(value: T) -> str:
+    def erd_encode(self, value: T) -> str:
         raise NotImplementedError
 
 

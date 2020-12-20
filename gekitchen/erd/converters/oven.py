@@ -9,16 +9,15 @@ __all__ = (
 )
 
 from .abstract import ErdReadOnlyConverter, ErdValueConverter
-from .base_types import *
+from .primitives import *
 from gekitchen.erd.values.oven import *
 
 class ErdOvenStateConverter(ErdReadOnlyConverter[ErdOvenState]):
-    @staticmethod
-    def erd_decode(value: str) -> ErdOvenState:
+    def erd_decode(self, value: str) -> ErdOvenState:
         """
         See erdCurrentState.smali
         """
-        state_code = ErdIntConverter.erd_decode(value)
+        state_code = erd_decode_int(value)
         if 44 <= state_code <= 59:
             return ErdOvenState.OVEN_STATE_SPECIAL_X
         if 42 <= state_code <= 43:
@@ -38,11 +37,10 @@ class ErdOvenStateConverter(ErdReadOnlyConverter[ErdOvenState]):
         return ErdOvenState.STATUS_DASH
 
 class ErdAvailableCookModeConverter(ErdReadOnlyConverter[ErdAvailableCookMode]):
-    @staticmethod
-    def erd_decode(value: str) -> ErdAvailableCookMode:
+    def erd_decode(self, value: str) -> ErdAvailableCookMode:
         if not value:
             return {ErdAvailableCookMode.OVEN_BAKE.value.cook_mode}
-        mode_bytes = [int(i) for i in ErdBytesConverter.erd_decode(value)]
+        mode_bytes = [int(i) for i in erd_decode_bytes(value)]
         available_modes = {
             mode.value.cook_mode
             for mode in ErdAvailableCookMode
@@ -51,20 +49,18 @@ class ErdAvailableCookModeConverter(ErdReadOnlyConverter[ErdAvailableCookMode]):
         return available_modes
 
 class OvenCookModeConverter(ErdValueConverter[OvenCookSetting]):
-    @staticmethod
-    def erd_decode(value: str) -> OvenCookSetting:
+    def erd_decode(self, value: str) -> OvenCookSetting:
         """
         Get the cook mode and temperature.
         TODO: Figure out what the other 10 bytes are for.
             I'm guessing they have to do with two-temp cooking, probes, delayed starts, timers, etc.
         """
-        byte_string = ErdBytesConverter.erd_decode(value)
+        byte_string = erd_decode_bytes(value)
         cook_mode_code = byte_string[0]
         temperature = int.from_bytes(byte_string[1:3], 'big')
         cook_mode = ErdOvenCookMode(cook_mode_code)
         return OvenCookSetting(cook_mode=OVEN_COOK_MODE_MAP[cook_mode], temperature=temperature, raw_bytes=byte_string)
-    @staticmethod
-    def erd_encode(value: OvenCookSetting):
+    def erd_encode(self, value: OvenCookSetting) -> str:
         """Re-encode a cook mode and temperature
         TODO: Other ten bytes"""
         cook_mode = value.cook_mode
@@ -74,12 +70,11 @@ class OvenCookModeConverter(ErdValueConverter[OvenCookSetting]):
         return cook_mode_hex + temperature_hex + ('00' * 10)
 
 class OvenConfigurationConverter(ErdReadOnlyConverter[OvenConfiguration]):
-    @staticmethod
-    def erd_decode(value: str) -> OvenConfiguration:
+    def erd_decode(self, value: str) -> OvenConfiguration:
         if not value:
             n = 0
         else:
-            n = ErdIntConverter.erd_decode(value)
+            n = erd_decode_int(value)
 
         config = OvenConfiguration(
             has_knob=bool(n & ErdOvenConfiguration.HAS_KNOB.value),
@@ -92,8 +87,7 @@ class OvenConfigurationConverter(ErdReadOnlyConverter[OvenConfiguration]):
         return config
 
 class OvenRangesConverter(ErdReadOnlyConverter[OvenRanges]):  
-    @staticmethod
-    def erd_decode(value: str) -> OvenRanges:
+    def erd_decode(self, value: str) -> OvenRanges:
         raw_bytes = bytes.fromhex(value)
         upper_temp = int.from_bytes(raw_bytes[:2], 'big')
         lower_temp = int.from_bytes(raw_bytes[-2:], 'big')

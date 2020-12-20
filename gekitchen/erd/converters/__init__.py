@@ -1,7 +1,7 @@
 """GE ERD Converters"""
 
 from .abstract import *
-from .base_types import *
+from .primitives import *
 from .specialized import *
 from .oven import *
 from .fridge import *
