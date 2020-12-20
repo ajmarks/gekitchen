@@ -4,15 +4,9 @@ import logging
 from weakref import WeakValueDictionary
 from typing import Any, Dict, Optional, Set, TYPE_CHECKING, Union
 from slixmpp import JID
-from .erd_utils import (
-    ERD_DECODERS,
-    ERD_ENCODERS,
-    ErdCodeType,
-    decode_erd_bytes,
-    decode_erd_int,
-    translate_erd_code,
-)
-from .erd_constants import ErdApplianceType, ErdCode
+from .erd import ErdCodeType, ErdSerializer
+
+from .erd import ErdApplianceType, ErdCode
 
 if TYPE_CHECKING:
     from .clients import GeBaseClient
@@ -28,12 +22,9 @@ _LOGGER = logging.getLogger(__name__)
 class GeAppliance:
     """Base class shared by all appliances"""
 
-    # Registered encoders and decoders for ERD fields
-    _erd_decoders = ERD_DECODERS
-    _erd_encoders = ERD_ENCODERS
-
     # Registry of initialized appliances
     _appliance_cache = WeakValueDictionary()
+    _serializer = ErdSerializer()
 
     def __new__(cls, mac_addr: Union[str, JID], client: "GeBaseClient", *args, **kwargs):
         if isinstance(mac_addr, JID):
@@ -94,24 +85,11 @@ class GeAppliance:
         cannot be resolved to a known ERD Code, the value will be treated as raw byte string.
         Unregistered ERD Codes will be translated as ints.
 
-        TODO: Register the numeric fields, and change the default behavior to bytestring
-
         :param erd_code: ErdCode or str, the ERD Code the value of which we want to decode
         :param erd_value: The raw ERD code value, usually a hex string without leading "0x"
         :return: The decoded value.
         """
-        if erd_value == '':
-            return None
-
-        erd_code = translate_erd_code(erd_code)
-
-        if isinstance(erd_code, str):
-            return decode_erd_bytes(erd_value)
-
-        try:
-            return self._erd_decoders[erd_code](erd_value)
-        except KeyError:
-            return decode_erd_int(erd_value)
+        return self._serializer.decode_erd_value(erd_code, erd_value)
 
     def encode_erd_value(self, erd_code: ErdCodeType, value: Any) -> str:
         """
@@ -122,15 +100,7 @@ class GeAppliance:
         :param value: The value to re-encode
         :return: The encoded value as a hex string
         """
-        if value is None:
-            return ''
-
-        erd_code = translate_erd_code(erd_code)
-
-        try:
-            return self._erd_encoders[erd_code](value)
-        except KeyError:
-            raise
+        return self._serializer.encode_erd_value(erd_code, value)
 
     def get_erd_value(self, erd_code: ErdCodeType) -> Any:
         """
@@ -138,7 +108,7 @@ class GeAppliance:
         :param erd_code: ErdCode or str, The ERD code for the property to get
         :return: The current cached value of that ERD code
         """
-        erd_code = translate_erd_code(erd_code)
+        erd_code = self._serializer.translate_erd_code(erd_code)
         return self._property_cache[erd_code]
 
     async def async_set_erd_value(self, erd_code: ErdCodeType, value: Any):
@@ -159,7 +129,7 @@ class GeAppliance:
         :param erd_value: The new value to set, as returned by the appliance (usually a hex string)
         :return: Boolean, True if the state changed, False if no value changed
         """
-        erd_code = translate_erd_code(erd_code)
+        erd_code = self._serializer.translate_erd_code(erd_code)
         value = self.decode_erd_value(erd_code, erd_value)
 
         old_value = self._property_cache.get(erd_code)
@@ -184,7 +154,7 @@ class GeAppliance:
         :return: dictionary of new states
         """
         state_changes = {
-            translate_erd_code(k): self.decode_erd_value(k, v)
+            self._serializer.translate_erd_code(k): self.decode_erd_value(k, v)
             for k, v in erd_values.items()
             if self.update_erd_value(k, v)
         }

@@ -1,7 +1,6 @@
 """ERD Codes for GE appliances"""
 import enum
 
-
 @enum.unique
 class ErdCode(enum.Enum):
     """
