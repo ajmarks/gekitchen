@@ -80,9 +80,6 @@ def _decode_erd_serial_model(value: str) -> str:
 def _decode_erd_string(value: str) -> str:
     """
     Decode an string value sent as a hex encoded string.
-
-    TODO: At least for the dishwasher cycle the first character is not a check sum
-    are there potentially different decoding methods needed?
     """
     raw_bytes = bytes.fromhex(value)
     raw_bytes = raw_bytes.rstrip(b'\x00')
