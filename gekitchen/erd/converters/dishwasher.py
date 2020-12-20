@@ -17,9 +17,7 @@ class ErdCycleStateConverter(ErdReadOnlyConverter[ErdCycleState]):
         try:
             raw = ErdCycleStateRaw(value)
             return CYCLE_STATE_RAW_MAP[raw]
-        except ValueError:
-            return ErdCycleState.NA
-        except KeyError:
+        except (ValueError, KeyError):
             return ErdCycleState.NA
 
 class ErdOperatingStateConverter(ErdReadOnlyConverter[ErdOperatingState]):
@@ -38,9 +36,7 @@ class ErdRinseAgentConverter(ErdReadOnlyConverter[ErdRinseAgent]):
         try:
             raw = ErdRinseAgentRaw(value)
             return RINSE_AGENT_RAW_MAP[raw]
-        except ValueError:
-            return ErdRinseAgent.NA
-        except KeyError:
+        except (ValueError, KeyError):
             return ErdRinseAgent.NA
 
 CYCLE_STATE_RAW_MAP = {
