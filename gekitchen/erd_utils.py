@@ -396,9 +396,7 @@ def _decode_cycle_state(value: str) -> ErdCycleState:
     try:
         raw = ErdCycleStateRaw(value)
         return CYCLE_STATE_RAW_MAP[raw]
-    except ValueError:
-        return ErdCycleState.NA
-    except KeyError:
+    except (KeyError, ValueError):
         return ErdCycleState.NA
 
 def _decode_rinse_agent(value: str) -> ErdRinseAgent:
