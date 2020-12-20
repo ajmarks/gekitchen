@@ -405,9 +405,7 @@ def _decode_rinse_agent(value: str) -> ErdRinseAgent:
     try:
         raw = ErdRinseAgentRaw(value)
         return RINSE_AGENT_RAW_MAP[raw]
-    except ValueError:
-        return ErdRinseAgent.NA
-    except KeyError:
+    except (KeyError, ValueError):
         return ErdRinseAgent.NA
 
 def _decode_sw_version(value: str) -> str:
